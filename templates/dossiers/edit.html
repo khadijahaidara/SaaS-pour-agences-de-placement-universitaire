@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block title %}Modifier {{ dossier.reference }}{% endblock %}
+{% block content %}
+<h1>Modifier le dossier {{ dossier.reference }}</h1>
+<form method="post" class="card">{% csrf_token %}
+  <div class="form-row">{% for field in form %}{% include "includes/field.html" %}{% endfor %}</div>
+  <button class="btn" type="submit">Enregistrer</button>
+  <a class="btn secondary" href="{% url 'dossiers:detail' dossier.pk %}">Annuler</a>
+</form>
+{% endblock %}

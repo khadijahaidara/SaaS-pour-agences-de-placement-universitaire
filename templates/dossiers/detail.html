@@ -1,0 +1,185 @@
+{% extends "base.html" %}{% load humanize %}{% block title %}{{ dossier.student }} — {{ dossier.reference }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ dossier.student.get_full_name|default:dossier.student.email }}</h1>
+    <p class="muted">{{ dossier.reference }} · {{ dossier.destination_country }}{% if dossier.destination_city %} ({{ dossier.destination_city }}){% endif %}{% if dossier.program %} · {{ dossier.program }}{% endif %}{% if dossier.institution %} — {{ dossier.institution }}{% endif %}{% if dossier.intake %} · {{ dossier.intake }}{% endif %}</p>
+    {% include "includes/badge.html" with value=dossier.status label=dossier.get_status_display %}
+    {% if dossier.blocked_reason %}<span class="small" style="color:var(--danger)"> {{ dossier.blocked_reason }}</span>{% endif %}
+    {% if alerts %}<ul class="alert-list">{% for a in alerts %}<li>{{ a.label }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+  <a class="btn secondary" href="{% url 'dossiers:edit' dossier.pk %}">Modifier les informations</a>
+</div>
+
+{% if invitation_url %}
+<div class="card" style="border-color:var(--primary)">
+  <h3>Lien d'activation de l'étudiant</h3>
+  <p class="small muted">Un courriel a pu être envoyé, mais transmettez aussi ce lien par WhatsApp ou SMS. Il est valable 7 jours.</p>
+  <div class="copy-box"><input class="input" readonly value="{{ invitation_url }}" id="invite"><button class="btn secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('invite').value);this.textContent='Copié ✓'">Copier</button></div>
+</div>
+{% elif not student_activated %}
+<p class="small muted">L'étudiant n'a pas encore activé son compte. <a href="?invitation=1">Afficher un nouveau lien d'activation</a></p>
+{% endif %}
+
+<div class="grid grid-2">
+<div>
+  <!-- Étapes -->
+  <section class="card" id="etapes">
+    <div class="page-head" style="margin-bottom:.5rem"><h2>Étapes du parcours</h2><span class="small muted">{{ dossier.progress_percent }} % effectué</span></div>
+    <div class="progress" style="margin-bottom:.75rem"><div style="width: {{ dossier.progress_percent }}%"></div></div>
+    <ol class="steps">
+      {% for s in stages %}
+      <li class="{{ s.status }}{% if s.is_overdue %} overdue{% endif %}">
+        <span class="dot">{% if s.status == 'done' %}✓{% else %}{{ forloop.counter }}{% endif %}</span>
+        <div>
+          <strong>{{ s.name }}</strong> {% include "includes/badge.html" with value=s.status label=s.get_status_display %}
+          <div class="meta">
+            {% if s.status == 'done' %}Terminée le {{ s.completed_at|date:"d/m/Y" }}
+            {% elif s.due_date %}Échéance : {{ s.due_date|date:"d/m/Y" }}{% if s.is_overdue %} — en retard{% endif %}{% endif %}
+          </div>
+          {% if s.status == 'in_progress' and is_open %}
+            {% with blocking=s.blocking_documents %}
+            {% if blocking %}<div class="small" style="color:var(--warn)">Pièces à valider avant de continuer : {% for b in blocking %}{{ b.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}
+            {% endwith %}
+            <details><summary>Faire progresser / changer l'échéance</summary>
+              <form method="post" action="{% url 'dossiers:advance_stage' dossier.pk %}" class="inline-form" style="margin:.5rem 0">{% csrf_token %}
+                {% include "includes/field.html" with field=forms.advance.next_due_date %}
+                {% if user.is_agency_admin %}{% include "includes/field.html" with field=forms.advance.force %}{% endif %}
+                <button class="btn ok" type="submit">Terminer l'étape ✓</button>
+              </form>
+              <form method="post" action="{% url 'dossiers:stage_due_date' dossier.pk s.pk %}" class="inline-form">{% csrf_token %}
+                {% include "includes/field.html" with field=forms.due_date.due_date %}
+                <button class="btn secondary" type="submit">Modifier l'échéance</button>
+              </form>
+            </details>
+          {% endif %}
+        </div>
+      </li>
+      {% empty %}<li class="muted">Aucune étape (dossier créé sans modèle).</li>{% endfor %}
+    </ol>
+  </section>
+
+  <!-- Pièces -->
+  <section class="card" id="pieces">
+    <h2>Pièces du dossier</h2>
+    {% for doc in documents %}
+    <div class="doc">
+      <div class="doc-head">
+        <div><strong>{{ doc.name }}</strong>{% if not doc.is_required %} <span class="small muted">(facultative)</span>{% endif %}
+          {% if doc.stage %}<span class="small muted"> · pour « {{ doc.stage.name }} »</span>{% endif %}
+          {% if doc.description %}<div class="small muted">{{ doc.description }}</div>{% endif %}
+          {% if doc.due_date %}<div class="small {% if doc.is_overdue %}reason{% else %}muted{% endif %}">À fournir avant le {{ doc.due_date|date:"d/m/Y" }}</div>{% endif %}
+        </div>
+        {% include "includes/badge.html" with value=doc.status label=doc.get_status_display %}
+      </div>
+      {% if doc.rejection_reason %}<div class="reason">Motif du retour : {{ doc.rejection_reason }}</div>{% endif %}
+      {% with files=doc.files.all %}{% if files %}
+        <div class="small" style="margin-top:.35rem">Versions :
+          {% for f in files %}<a href="{% url 'dossiers:document_download' f.pk %}" target="_blank" rel="noopener">{{ f.original_name|truncatechars:30 }}</a> <span class="muted">({{ f.uploaded_at|date:"d/m H:i" }})</span>{% if not forloop.last %} · {% endif %}{% endfor %}
+        </div>
+      {% endif %}{% endwith %}
+      {% if is_open %}
+        {% if doc.status == 'submitted' %}
+        <div class="inline-form" style="margin-top:.5rem">
+          <form method="post" action="{% url 'dossiers:review_document' dossier.pk doc.pk %}">{% csrf_token %}
+            <input type="hidden" name="decision" value="approve"><button class="btn ok small" type="submit">Valider</button>
+          </form>
+          <form method="post" action="{% url 'dossiers:review_document' dossier.pk doc.pk %}" class="inline-form">{% csrf_token %}
+            <input type="hidden" name="decision" value="reject">
+            <input class="input" name="reason" placeholder="Motif du retour (obligatoire)" required maxlength="255" style="min-width:220px">
+            <button class="btn danger small" type="submit">Retourner</button>
+          </form>
+        </div>
+        {% endif %}
+        {% if doc.status != 'approved' %}
+        <details><summary class="small">Déposer pour l'étudiant (reçu par WhatsApp / au guichet)</summary>
+          <form method="post" enctype="multipart/form-data" action="{% url 'dossiers:upload_document' dossier.pk doc.pk %}" class="inline-form">{% csrf_token %}
+            <input class="input" type="file" name="file" accept=".pdf,.jpg,.jpeg,.png" required>
+            <button class="btn secondary small" type="submit">Déposer</button>
+          </form>
+        </details>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% empty %}<p class="muted">Aucune pièce demandée.</p>{% endfor %}
+    {% if is_open %}
+    <details><summary>+ Demander une pièce</summary>
+      <form method="post" action="{% url 'dossiers:request_document' dossier.pk %}">{% csrf_token %}
+        <div class="form-row">{% for field in forms.request_doc %}{% include "includes/field.html" %}{% endfor %}</div>
+        <button class="btn" type="submit">Demander à l'étudiant</button>
+      </form>
+    </details>
+    {% endif %}
+  </section>
+
+  <!-- Paiements -->
+  <section class="card" id="paiements">
+    <h2>Frais de service et paiements</h2>
+    <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
+      <div class="kpi"><div class="v">{{ dossier.total_fees|floatformat:0|intcomma }}</div><div class="l">Total dû ({{ dossier.agency.currency }})</div></div>
+      <div class="kpi"><div class="v">{{ dossier.total_paid|floatformat:0|intcomma }}</div><div class="l">Payé</div></div>
+      <div class="kpi {% if dossier.balance > 0 %}alert{% endif %}"><div class="v">{{ dossier.balance|floatformat:0|intcomma }}</div><div class="l">Reste à payer</div></div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Prestation</th><th>Échéance</th><th class="num">Montant</th></tr></thead>
+      <tbody>{% for f in fees %}<tr><td>{{ f.label }}</td><td>{{ f.due_date|date:"d/m/Y"|default:"—" }}</td><td class="num">{{ f.amount|floatformat:0|intcomma }}</td></tr>{% empty %}<tr><td colspan="3" class="muted">Aucun frais défini.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <h3 style="margin-top:1rem">Encaissements</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Reçu</th><th>Mode</th><th class="num">Montant</th><th></th></tr></thead>
+      <tbody>{% for p in payments %}
+        <tr{% if p.is_cancelled %} style="opacity:.5;text-decoration:line-through"{% endif %}>
+          <td>{{ p.paid_on|date:"d/m/Y" }}</td>
+          <td><a href="{% url 'dossiers:receipt' p.pk %}" target="_blank">{{ p.receipt_number }}</a></td>
+          <td class="small">{{ p.get_method_display }}{% if p.reference %}<br><span class="muted">{{ p.reference }}</span>{% endif %}</td>
+          <td class="num">{{ p.amount|floatformat:0|intcomma }}</td>
+          <td>{% if user.is_agency_admin and not p.is_cancelled %}
+            <details><summary class="small">Annuler</summary>
+              <form method="post" action="{% url 'dossiers:cancel_payment' dossier.pk p.pk %}">{% csrf_token %}
+                <input class="input" name="reason" placeholder="Motif" required maxlength="255"><button class="btn danger small" type="submit">Confirmer</button>
+              </form></details>{% elif p.is_cancelled %}<span class="small">Annulé</span>{% endif %}</td>
+        </tr>{% empty %}<tr><td colspan="5" class="muted">Aucun paiement.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <div class="grid grid-3" style="margin-top:.75rem">
+      <details><summary>+ Ajouter des frais</summary>
+        <form method="post" action="{% url 'dossiers:add_fee' dossier.pk %}">{% csrf_token %}{% include "includes/form.html" with form=forms.fee %}<button class="btn" type="submit">Ajouter</button></form>
+      </details>
+      <details><summary>+ Enregistrer un paiement</summary>
+        <form method="post" action="{% url 'dossiers:record_payment' dossier.pk %}">{% csrf_token %}{% include "includes/form.html" with form=forms.payment %}<button class="btn" type="submit">Enregistrer</button></form>
+      </details>
+    </div>
+  </section>
+</div>
+
+<aside>
+  <section class="card">
+    <h2>Suivi</h2>
+    <p class="small"><strong>Conseiller :</strong> {{ dossier.counselor|default:"non assigné" }}</p>
+    {% if user.is_agency_admin %}
+    <form method="post" action="{% url 'dossiers:assign' dossier.pk %}" class="inline-form">{% csrf_token %}
+      {% include "includes/field.html" with field=forms.assign.counselor %}<button class="btn secondary small" type="submit">Affecter</button>
+    </form>
+    {% endif %}
+    <hr style="border:0;border-top:1px solid var(--border)">
+    <form method="post" action="{% url 'dossiers:set_status' dossier.pk %}">{% csrf_token %}
+      {% include "includes/form.html" with form=forms.status %}
+      <button class="btn secondary block" type="submit">Changer le statut</button>
+    </form>
+  </section>
+  <section class="card">
+    <h2>Étudiant</h2>
+    <p class="small">{{ dossier.student.email }}<br>{{ dossier.student.phone|default:"" }}</p>
+    {% if dossier.guardian_name %}<p class="small"><strong>Répondant :</strong> {{ dossier.guardian_name }} {{ dossier.guardian_phone }}</p>{% endif %}
+    {% if dossier.internal_notes %}<p class="small"><strong>Notes internes :</strong><br>{{ dossier.internal_notes|linebreaksbr }}</p>{% endif %}
+  </section>
+  <section class="card">
+    <h2>Historique</h2>
+    <ul class="timeline">
+      {% for e in events %}
+      <li>{{ e.message }}<br><span class="small muted">{{ e.created_at|date:"d/m/Y H:i" }} · {{ e.actor|default:"système" }}{% if not e.visible_to_student %} · interne{% endif %}</span></li>
+      {% empty %}<li class="muted">—</li>{% endfor %}
+    </ul>
+  </section>
+</aside>
+</div>
+{% endblock %}

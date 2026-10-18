@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% block title %}Nouveau dossier{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Nouveau dossier</h1><p class="muted">Le parcours et la liste de pièces sont repris du modèle choisi. Un compte étudiant est créé s'il n'existe pas.</p></div></div>
+<form method="post" class="card">{% csrf_token %}
+  {% if form.non_field_errors %}<ul class="messages"><li class="error">{{ form.non_field_errors|join:" " }}</li></ul>{% endif %}
+  <h2>Étudiant</h2>
+  <div class="form-row">
+    {% include "includes/field.html" with field=form.student_first_name %}
+    {% include "includes/field.html" with field=form.student_last_name %}
+    {% include "includes/field.html" with field=form.student_email %}
+    {% include "includes/field.html" with field=form.student_phone %}
+  </div>
+  <h2>Projet d'études</h2>
+  <div class="form-row">
+    {% include "includes/field.html" with field=form.workflow %}
+    {% if user.is_agency_admin %}{% include "includes/field.html" with field=form.counselor %}{% else %}<div></div>{% endif %}
+    {% include "includes/field.html" with field=form.destination_country %}
+    {% include "includes/field.html" with field=form.destination_city %}
+    {% include "includes/field.html" with field=form.institution %}
+    {% include "includes/field.html" with field=form.program %}
+    {% include "includes/field.html" with field=form.intake %}
+  </div>
+  <h2>Parent / répondant</h2>
+  <div class="form-row">
+    {% include "includes/field.html" with field=form.guardian_name %}
+    {% include "includes/field.html" with field=form.guardian_phone %}
+  </div>
+  {% include "includes/field.html" with field=form.internal_notes %}
+  <button class="btn" type="submit">Créer le dossier</button>
+  <a class="btn secondary" href="{% url 'dossiers:list' %}">Annuler</a>
+</form>
+{% endblock %}

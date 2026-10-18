@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block title %}Modèles de parcours{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Modèles de parcours</h1><p class="muted">Étapes et pièces réutilisées à chaque nouveau dossier, par destination.</p></div>
+<a class="btn" href="{% url 'agencies:workflow_create' %}">+ Nouveau modèle</a></div>
+<div class="grid grid-3">
+{% for t in templates %}
+<section class="card">
+  <div class="page-head" style="margin-bottom:.4rem"><h2>{{ t.name }}</h2>{% if not t.is_active %}<span class="badge s-cancelled">Inactif</span>{% endif %}</div>
+  <p class="small muted">{{ t.destination_country }} · {{ t.stages.all|length }} étapes · {{ t.documents.all|length }} pièces</p>
+  <ol class="small">{% for s in t.stages.all %}<li>{{ s.name }} <span class="muted">({{ s.default_duration_days }} j)</span></li>{% endfor %}</ol>
+  <a class="btn secondary small" href="{% url 'agencies:workflow_edit' t.pk %}">Modifier</a>
+</section>
+{% empty %}<p class="muted">Aucun modèle. Créez-en un pour pouvoir ouvrir des dossiers.</p>{% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block title %}Notifications{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Notifications</h1>
+<form method="post" action="{% url 'dossiers:notifications_mark_all' %}">{% csrf_token %}<button class="btn secondary small">Tout marquer comme lu</button></form></div>
+<div class="card">
+<ul class="timeline">
+{% for n in notifications %}
+  <li style="display:flex;justify-content:space-between;gap:.5rem;align-items:center">
+    <span>{% if not n.is_read %}<strong>{% endif %}{{ n.message }}{% if not n.is_read %}</strong>{% endif %}<br><span class="small muted">{{ n.created_at|date:"d/m/Y H:i" }}</span></span>
+    <form method="post" action="{% url 'dossiers:notification_open' n.pk %}">{% csrf_token %}<button class="btn secondary small">Ouvrir</button></form>
+  </li>
+{% empty %}<li class="muted">Aucune notification.</li>{% endfor %}
+</ul></div>
+{% endblock %}

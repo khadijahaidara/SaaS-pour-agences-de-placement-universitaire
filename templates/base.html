@@ -1,0 +1,43 @@
+{% load static %}<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Suivi des dossiers{% endblock %} — Neuralis Placement</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body>
+{% if user.is_authenticated %}
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="{% url 'home' %}">Neuralis <span>Placement</span></a>
+    <nav class="nav">
+      {% if user.is_agency_staff %}
+        {% with name=request.resolver_match.url_name ns=request.resolver_match.namespace %}
+        <a href="{% url 'dossiers:dashboard' %}" class="{% if ns == 'dossiers' and name == 'dashboard' %}active{% endif %}">Tableau de suivi</a>
+        <a href="{% url 'dossiers:list' %}" class="{% if ns == 'dossiers' and name != 'dashboard' and name != 'notifications' %}active{% endif %}">Dossiers</a>
+        {% if user.is_agency_admin %}
+        <a href="{% url 'agencies:workflows' %}" class="{% if ns == 'agencies' and name != 'team' %}active{% endif %}">Parcours</a>
+        <a href="{% url 'agencies:team' %}" class="{% if name == 'team' %}active{% endif %}">Équipe</a>
+        {% endif %}
+        {% endwith %}
+      {% elif user.is_student %}
+        <a href="{% url 'portal:home' %}" class="active">Mon dossier</a>
+      {% endif %}
+    </nav>
+    <div class="user-menu">
+      <a class="bell" href="{% url 'dossiers:notifications' %}" title="Notifications" aria-label="Notifications">
+        🔔{% if unread_notifications_count %}<span class="count">{{ unread_notifications_count }}</span>{% endif %}
+      </a>
+      <span class="small muted">{{ user.get_full_name|default:user.email }}{% if user.agency %} · {{ user.agency }}{% endif %}</span>
+      <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="btn secondary small" type="submit">Déconnexion</button></form>
+    </div>
+  </div>
+</header>
+{% endif %}
+<main class="wrap">
+  {% include "includes/messages.html" %}
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

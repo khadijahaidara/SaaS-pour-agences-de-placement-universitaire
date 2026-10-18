@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}Mes dossiers{% endblock %}
+{% block content %}
+<h1>Mes dossiers</h1>
+{% for d in dossiers %}
+<a class="card" style="display:block;color:inherit" href="{% url 'portal:dossier' d.pk %}">
+  <strong>{{ d.destination_country }}</strong> — {{ d.program|default:"programme à préciser" }} {% include "includes/badge.html" with value=d.status label=d.get_status_display %}
+  <div class="progress" style="margin-top:.5rem"><div style="width:{{ d.progress_percent }}%"></div></div>
+</a>
+{% empty %}<div class="card"><p class="muted">Aucun dossier pour le moment. Votre agence le créera prochainement.</p></div>{% endfor %}
+{% endblock %}

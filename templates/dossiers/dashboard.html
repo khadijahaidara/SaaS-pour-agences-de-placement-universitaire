@@ -1,0 +1,50 @@
+{% extends "base.html" %}{% load humanize %}{% block title %}Tableau de suivi{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Tableau de suivi</h1><p class="muted">Dossiers qui demandent une intervention, du plus urgent au moins urgent.</p></div>
+  <div class="inline-form">
+    {% if user.is_agency_admin %}
+    <a class="btn secondary small" href="?scope={% if scope == 'mine' %}all{% else %}mine{% endif %}">{% if scope == 'mine' %}Voir toute l'agence{% else %}Voir mes dossiers{% endif %}</a>
+    {% endif %}
+    <a class="btn" href="{% url 'dossiers:create' %}">+ Nouveau dossier</a>
+  </div>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="v">{{ stats.open }}</div><div class="l">Dossiers ouverts</div></div>
+  <div class="kpi {% if stats.to_review %}alert{% endif %}"><div class="v">{{ stats.to_review }}</div><div class="l">Pièces à vérifier</div></div>
+  <div class="kpi {% if stats.overdue %}alert{% endif %}"><div class="v">{{ stats.overdue }}</div><div class="l">Étapes en retard</div></div>
+  <div class="kpi {% if stats.blocked %}alert{% endif %}"><div class="v">{{ stats.blocked }}</div><div class="l">Dossiers bloqués</div></div>
+  <div class="kpi"><div class="v">{{ stats.completed }}</div><div class="l">Étudiants accueillis</div></div>
+  <div class="kpi"><div class="v">{{ stats.outstanding|floatformat:0|intcomma }}</div><div class="l">Reste à encaisser ({{ user.agency.currency }})</div></div>
+</div>
+
+<div class="grid grid-2">
+  <section class="card">
+    <h2>À traiter en priorité</h2>
+    {% if priority %}
+    <div class="table-wrap"><table>
+      <thead><tr><th>Étudiant</th><th>Étape</th><th>Pourquoi</th><th>Conseiller</th></tr></thead>
+      <tbody>
+      {% for row in priority %}{% with d=row.dossier %}
+        <tr>
+          <td><a href="{% url 'dossiers:detail' d.pk %}"><strong>{{ d.student }}</strong></a><br><span class="small muted">{{ d.reference }} · {{ d.destination_country }}</span></td>
+          <td>{{ d.current_stage.name|default:"—" }}</td>
+          <td><ul class="alert-list">{% for a in row.alerts %}<li>{{ a.label }}</li>{% endfor %}</ul></td>
+          <td class="small">{{ d.counselor|default:"—" }}</td>
+        </tr>
+      {% endwith %}{% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}
+      <p class="muted">Aucun dossier en alerte. 👍</p>
+    {% endif %}
+  </section>
+  <aside class="card">
+    <h2>Dossiers par étape</h2>
+    {% for s in by_stage %}
+      <div style="display:flex;justify-content:space-between" class="small"><span>{{ s.name }}</span><strong>{{ s.n }}</strong></div>
+    {% empty %}<p class="muted small">Aucun dossier ouvert.</p>{% endfor %}
+  </aside>
+</div>
+{% endblock %}

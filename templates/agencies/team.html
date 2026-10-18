@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% block title %}Équipe{% endblock %}
+{% block content %}
+<h1>Équipe de l'agence</h1>
+{% if invitation_url %}
+<div class="card" style="border-color:var(--primary)"><h3>Lien d'activation</h3>
+<div class="copy-box"><input class="input" readonly value="{{ invitation_url }}" id="invite"><button class="btn secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('invite').value);this.textContent='Copié ✓'">Copier</button></div></div>
+{% endif %}
+<div class="grid grid-2">
+<section class="card table-wrap"><table>
+  <thead><tr><th>Nom</th><th>Courriel</th><th>Rôle</th><th>Statut</th><th></th></tr></thead>
+  <tbody>{% for m in members %}
+  <tr><td>{{ m.get_full_name }}</td><td class="small">{{ m.email }}</td><td>{{ m.get_role_display }}</td>
+    <td>{% if not m.is_active %}<span class="badge s-cancelled">Désactivé</span>{% elif not m.has_usable_password %}<span class="badge s-pending">Invitation en attente</span>{% else %}<span class="badge s-done">Actif</span>{% endif %}</td>
+    <td>{% if m != user %}<form method="post" action="{% url 'agencies:toggle_member' m.pk %}">{% csrf_token %}<button class="btn secondary small">{% if m.is_active %}Désactiver{% else %}Réactiver{% endif %}</button></form>{% endif %}</td></tr>
+  {% endfor %}</tbody></table></section>
+<section class="card"><h2>Ajouter un membre</h2>
+  <form method="post">{% csrf_token %}{% include "includes/form.html" %}<button class="btn" type="submit">Ajouter</button></form>
+</section>
+</div>
+{% endblock %}

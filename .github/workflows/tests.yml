@@ -1,0 +1,23 @@
+name: tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: {POSTGRES_DB: placement, POSTGRES_USER: placement, POSTGRES_PASSWORD: placement}
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      DJANGO_DEBUG: "1"
+      DATABASE_URL: postgres://placement:placement@localhost:5432/placement
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.13"}
+      - run: pip install -r requirements.txt
+      - run: python manage.py makemigrations --check --dry-run
+      - run: python manage.py check --deploy --fail-level ERROR
+        env: {DJANGO_DEBUG: "0", DJANGO_SECRET_KEY: "ci-only-secret-key-with-enough-length-1234567890"}
+      - run: python manage.py test

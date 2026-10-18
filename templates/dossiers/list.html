@@ -1,0 +1,35 @@
+{% extends "base.html" %}{% block title %}Dossiers{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Dossiers</h1><a class="btn" href="{% url 'dossiers:create' %}">+ Nouveau dossier</a></div>
+<form class="card inline-form" method="get">
+  {% for field in form %}{% include "includes/field.html" %}{% endfor %}
+  <button class="btn secondary" type="submit">Filtrer</button>
+</form>
+<div class="card table-wrap">
+<table>
+  <thead><tr><th>Référence</th><th>Étudiant</th><th>Destination</th><th>Programme</th><th>Statut</th><th>Conseiller</th><th>Dernière activité</th></tr></thead>
+  <tbody>
+  {% for d in page %}
+    <tr>
+      <td><a href="{% url 'dossiers:detail' d.pk %}">{{ d.reference }}</a></td>
+      <td>{{ d.student }}<br><span class="small muted">{{ d.student.phone }}</span></td>
+      <td>{{ d.destination_country }}{% if d.destination_city %} — {{ d.destination_city }}{% endif %}</td>
+      <td class="small">{{ d.program|default:"—" }}<br><span class="muted">{{ d.institution }}</span></td>
+      <td>{% include "includes/badge.html" with value=d.status label=d.get_status_display %}</td>
+      <td class="small">{{ d.counselor|default:"—" }}</td>
+      <td class="small">{{ d.last_activity_at|timesince }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="7" class="muted">Aucun dossier ne correspond.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if page.paginator.num_pages > 1 %}
+<div class="pagination">
+  {% if page.has_previous %}<a class="btn secondary small" href="?{{ querystring }}&page={{ page.previous_page_number }}">←</a>{% endif %}
+  <span class="small">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a class="btn secondary small" href="?{{ querystring }}&page={{ page.next_page_number }}">→</a>{% endif %}
+</div>
+{% endif %}
+</div>
+{% endblock %}

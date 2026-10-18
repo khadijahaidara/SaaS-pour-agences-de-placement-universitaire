@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block title %}Connexion{% endblock %}
+{% block content %}
+<div class="auth-box card">
+  <h1>Connexion</h1>
+  <p class="muted">Espace agence et portail étudiant.</p>
+  <form method="post">{% csrf_token %}
+    {% if form.non_field_errors %}<ul class="messages"><li class="error">Courriel ou mot de passe incorrect.</li></ul>{% endif %}
+    <div class="field"><label for="id_username">Courriel</label><input class="input" type="email" name="username" id="id_username" autocomplete="email" required value="{{ form.username.value|default:'' }}"></div>
+    <div class="field"><label for="id_password">Mot de passe</label><input class="input" type="password" name="password" id="id_password" autocomplete="current-password" required></div>
+    <input type="hidden" name="next" value="{{ next }}">
+    <button class="btn block" type="submit">Se connecter</button>
+  </form>
+  <p class="small"><a href="{% url 'accounts:password_reset' %}">Mot de passe oublié ?</a></p>
+</div>
+{% endblock %}
