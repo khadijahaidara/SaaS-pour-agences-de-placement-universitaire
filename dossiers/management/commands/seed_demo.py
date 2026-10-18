@@ -33,6 +33,10 @@ class Command(BaseCommand):
     @transaction.atomic
     def _seed(self):
         if Agency.objects.filter(slug="agence-demo-bamako").exists():
+            if not User.objects.filter(email="console@demo.ml").exists():
+                User.objects.create_superuser(email="console@demo.ml", password=PASSWORD, first_name="Équipe",
+                                              last_name="NEURALIS")
+                self.stdout.write("Compte console NEURALIS ajouté : console@demo.ml")
             self.stdout.write("Les données de démonstration existent déjà.")
             return
         from agencies.services import create_agency

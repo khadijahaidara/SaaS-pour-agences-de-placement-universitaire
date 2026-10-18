@@ -174,7 +174,7 @@ EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Suivi dossiers <no-reply@neuralis-mali.com>")
 
 # Paramètres métier
-SITE_NAME = os.environ.get("SITE_NAME", "Neuralis Placement")
+SITE_NAME = os.environ.get("SITE_NAME", "NEURALIS Mobility")
 DEFAULT_CURRENCY = os.environ.get("DEFAULT_CURRENCY", "FCFA")
 # Un dossier sans aucune activité depuis ce nombre de jours est signalé « inactif ».
 STALE_DOSSIER_DAYS = int(os.environ.get("STALE_DOSSIER_DAYS", "14"))
