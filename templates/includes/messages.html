@@ -1,1 +1,2 @@
-{% if messages %}<ul class="messages">{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}
+{% load ui %}{% if messages %}<div class="toasts" role="status" aria-live="polite">{% for m in messages %}
+<div class="toast {{ m.tags }}">{% if m.tags == "error" %}{% icon "alert" %}{% elif m.tags == "success" %}{% icon "check" %}{% else %}{% icon "bell" %}{% endif %}<div>{{ m }}</div><button type="button" aria-label="Fermer">{% icon "x" "sm" %}</button></div>{% endfor %}</div>{% endif %}

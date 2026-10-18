@@ -1,185 +1,246 @@
-{% extends "base.html" %}{% load humanize %}{% block title %}{{ dossier.student }} — {{ dossier.reference }}{% endblock %}
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}{{ dossier.student.get_full_name|default:dossier.student.email }}{% endblock %}
 {% block content %}
+{% with cur=dossier.agency.currency %}
 <div class="page-head">
-  <div>
-    <h1>{{ dossier.student.get_full_name|default:dossier.student.email }}</h1>
-    <p class="muted">{{ dossier.reference }} · {{ dossier.destination_country }}{% if dossier.destination_city %} ({{ dossier.destination_city }}){% endif %}{% if dossier.program %} · {{ dossier.program }}{% endif %}{% if dossier.institution %} — {{ dossier.institution }}{% endif %}{% if dossier.intake %} · {{ dossier.intake }}{% endif %}</p>
-    {% include "includes/badge.html" with value=dossier.status label=dossier.get_status_display %}
-    {% if dossier.blocked_reason %}<span class="small" style="color:var(--danger)"> {{ dossier.blocked_reason }}</span>{% endif %}
-    {% if alerts %}<ul class="alert-list">{% for a in alerts %}<li>{{ a.label }}</li>{% endfor %}</ul>{% endif %}
+  <div class="row" style="align-items:flex-start;gap:1rem">
+    <span class="avatar lg">{{ dossier.student|initials }}</span>
+    <div>
+      <div class="crumbs"><a href="{% url 'dossiers:list' %}">Dossiers</a>{% icon "chevron-right" "sm" %}{{ dossier.reference }}</div>
+      <h1>{{ dossier.student.get_full_name|default:dossier.student.email }}</h1>
+      <div class="row small muted">
+        {% include "includes/badge.html" with value=dossier.status label=dossier.get_status_display %}
+        <span>{% icon "plane" "sm" %} {{ dossier.destination_country }}{% if dossier.destination_city %}, {{ dossier.destination_city }}{% endif %}</span>
+        {% if dossier.program %}<span>{% icon "graduation" "sm" %} {{ dossier.program }}{% if dossier.institution %} — {{ dossier.institution }}{% endif %}</span>{% endif %}
+        {% if dossier.intake %}<span>{% icon "calendar" "sm" %} {{ dossier.intake }}</span>{% endif %}
+      </div>
+    </div>
   </div>
-  <a class="btn secondary" href="{% url 'dossiers:edit' dossier.pk %}">Modifier les informations</a>
+  <div class="row">
+    {% if is_open and current_stage %}<button class="btn" type="button" data-open-modal="m-advance">{% icon "check" "sm" %} Terminer l'étape</button>{% endif %}
+    <details class="dd">
+      <summary class="btn ghost">Actions {% icon "chevron-down" "sm" %}</summary>
+      <div class="dd-menu">
+        {% if is_open %}
+        <button class="dd-item" type="button" data-open-modal="m-request">{% icon "file" %} Demander une pièce</button>
+        <button class="dd-item" type="button" data-open-modal="m-payment">{% icon "wallet" %} Enregistrer un paiement</button>
+        <button class="dd-item" type="button" data-open-modal="m-fee">{% icon "receipt" %} Ajouter des frais</button>
+        <div class="dd-sep"></div>
+        {% endif %}
+        <button class="dd-item" type="button" data-open-modal="m-status">{% icon "flag" %} Changer le statut</button>
+        {% if user.is_agency_admin %}<button class="dd-item" type="button" data-open-modal="m-assign">{% icon "users" %} Réaffecter le dossier</button>{% endif %}
+        <a class="dd-item" href="{% url 'dossiers:edit' dossier.pk %}">{% icon "pencil" %} Modifier les informations</a>
+        {% if not student_activated %}<a class="dd-item" href="?invitation=1">{% icon "copy" %} Lien d'activation de l'étudiant</a>{% endif %}
+      </div>
+    </details>
+  </div>
 </div>
 
 {% if invitation_url %}
-<div class="card" style="border-color:var(--primary)">
-  <h3>Lien d'activation de l'étudiant</h3>
-  <p class="small muted">Un courriel a pu être envoyé, mais transmettez aussi ce lien par WhatsApp ou SMS. Il est valable 7 jours.</p>
-  <div class="copy-box"><input class="input" readonly value="{{ invitation_url }}" id="invite"><button class="btn secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('invite').value);this.textContent='Copié ✓'">Copier</button></div>
+<div class="alert-box info" style="align-items:center">{% icon "copy" %}
+  <div class="grow"><strong>Lien d'activation de l'étudiant</strong> — envoyez-le par WhatsApp ou SMS (valable 7 jours).
+    <div class="row" style="margin-top:.5rem"><input class="input grow" readonly value="{{ invitation_url }}" id="invite" style="max-width:560px"><button class="btn sm" type="button" data-copy="#invite">{% icon "copy" "sm" %} Copier</button>
+    {% if dossier.student.phone %}<a class="btn ghost sm" target="_blank" rel="noopener" href="https://wa.me/?text={{ invitation_url|urlencode }}">{% icon "message" "sm" %} WhatsApp</a>{% endif %}</div>
+  </div>
 </div>
-{% elif not student_activated %}
-<p class="small muted">L'étudiant n'a pas encore activé son compte. <a href="?invitation=1">Afficher un nouveau lien d'activation</a></p>
 {% endif %}
 
-<div class="grid grid-2">
+{% if alerts %}<div class="chips" style="margin:-.4rem 0 1.1rem">{% for a in alerts %}<span class="chip-alert {% if a.weight < 20 %}soft{% endif %}">{% icon "alert" "sm" %} {{ a.label }}</span>{% endfor %}</div>{% endif %}
+
+<div class="grid cols-main">
 <div>
-  <!-- Étapes -->
-  <section class="card" id="etapes">
-    <div class="page-head" style="margin-bottom:.5rem"><h2>Étapes du parcours</h2><span class="small muted">{{ dossier.progress_percent }} % effectué</span></div>
-    <div class="progress" style="margin-bottom:.75rem"><div style="width: {{ dossier.progress_percent }}%"></div></div>
-    <ol class="steps">
-      {% for s in stages %}
-      <li class="{{ s.status }}{% if s.is_overdue %} overdue{% endif %}">
-        <span class="dot">{% if s.status == 'done' %}✓{% else %}{{ forloop.counter }}{% endif %}</span>
-        <div>
-          <strong>{{ s.name }}</strong> {% include "includes/badge.html" with value=s.status label=s.get_status_display %}
-          <div class="meta">
-            {% if s.status == 'done' %}Terminée le {{ s.completed_at|date:"d/m/Y" }}
-            {% elif s.due_date %}Échéance : {{ s.due_date|date:"d/m/Y" }}{% if s.is_overdue %} — en retard{% endif %}{% endif %}
+  <section class="panel" id="etapes">
+    <div class="panel-head"><h2>Parcours</h2><div class="row small muted" style="min-width:180px">{{ dossier.progress_percent }} %<div class="progress grow"><span style="width:{{ dossier.progress_percent }}%"></span></div></div></div>
+    <div class="panel-body">
+      <ol class="journey">
+        {% for s in stages %}
+        <li class="{{ s.status }}{% if s.is_overdue %} overdue{% endif %}">
+          <span class="node">{% if s.status == 'done' %}{% icon "check" "sm" %}{% else %}{{ forloop.counter }}{% endif %}</span>
+          <div>
+            <div class="title">{{ s.name }} {% if s.status == "in_progress" %}{% include "includes/badge.html" with value=s.status label=s.get_status_display %}{% endif %}</div>
+            <div class="meta">
+              {% if s.status == 'done' %}Terminée le {{ s.completed_at|date:"d/m/Y" }}
+              {% elif s.status == 'in_progress' %}{% if s.due_date %}Échéance le {{ s.due_date|date:"d/m/Y" }}{% if s.is_overdue %} — en retard{% endif %}{% endif %}
+              {% else %}{{ s.default_duration_days }} jours prévus{% endif %}
+            </div>
+            {% if s.status == 'in_progress' and is_open %}
+              {% with blocking=s.blocking_documents %}{% if blocking %}<div class="hint">{% icon "lock" "sm" %} À valider avant de continuer : {% for b in blocking %}{{ b.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}{% endwith %}
+              <div class="row" style="margin-top:.5rem"><button class="btn sm" type="button" data-open-modal="m-advance">Terminer l'étape</button><button class="btn subtle sm" type="button" data-open-modal="m-due">{% icon "calendar" "sm" %} Changer l'échéance</button></div>
+            {% endif %}
           </div>
-          {% if s.status == 'in_progress' and is_open %}
-            {% with blocking=s.blocking_documents %}
-            {% if blocking %}<div class="small" style="color:var(--warn)">Pièces à valider avant de continuer : {% for b in blocking %}{{ b.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}
-            {% endwith %}
-            <details><summary>Faire progresser / changer l'échéance</summary>
-              <form method="post" action="{% url 'dossiers:advance_stage' dossier.pk %}" class="inline-form" style="margin:.5rem 0">{% csrf_token %}
-                {% include "includes/field.html" with field=forms.advance.next_due_date %}
-                {% if user.is_agency_admin %}{% include "includes/field.html" with field=forms.advance.force %}{% endif %}
-                <button class="btn ok" type="submit">Terminer l'étape ✓</button>
-              </form>
-              <form method="post" action="{% url 'dossiers:stage_due_date' dossier.pk s.pk %}" class="inline-form">{% csrf_token %}
-                {% include "includes/field.html" with field=forms.due_date.due_date %}
-                <button class="btn secondary" type="submit">Modifier l'échéance</button>
-              </form>
-            </details>
-          {% endif %}
-        </div>
-      </li>
-      {% empty %}<li class="muted">Aucune étape (dossier créé sans modèle).</li>{% endfor %}
-    </ol>
+        </li>
+        {% empty %}<li><span class="node">–</span><div class="muted">Aucune étape : dossier créé sans parcours.</div></li>{% endfor %}
+      </ol>
+    </div>
   </section>
 
-  <!-- Pièces -->
-  <section class="card" id="pieces">
-    <h2>Pièces du dossier</h2>
+  <section class="panel" id="pieces">
+    <div class="panel-head"><h2>Pièces du dossier</h2>{% if is_open %}<button class="btn ghost sm" type="button" data-open-modal="m-request">{% icon "plus" "sm" %} Demander une pièce</button>{% endif %}</div>
+    <div class="panel-body flush">
     {% for doc in documents %}
-    <div class="doc">
-      <div class="doc-head">
-        <div><strong>{{ doc.name }}</strong>{% if not doc.is_required %} <span class="small muted">(facultative)</span>{% endif %}
-          {% if doc.stage %}<span class="small muted"> · pour « {{ doc.stage.name }} »</span>{% endif %}
-          {% if doc.description %}<div class="small muted">{{ doc.description }}</div>{% endif %}
-          {% if doc.due_date %}<div class="small {% if doc.is_overdue %}reason{% else %}muted{% endif %}">À fournir avant le {{ doc.due_date|date:"d/m/Y" }}</div>{% endif %}
+      <div class="doc st-{{ doc.status }}">
+        <span class="doc-ic">{% if doc.status == "approved" %}{% icon "file-check" %}{% else %}{% icon "file" %}{% endif %}</span>
+        <div>
+          <div class="name">{{ doc.name }}{% if not doc.is_required %} <span class="tiny muted">facultative</span>{% endif %}</div>
+          <div class="small muted">{% if doc.stage %}Pour « {{ doc.stage.name }} »{% endif %}{% if doc.description %}{% if doc.stage %} · {% endif %}{{ doc.description }}{% endif %}{% if doc.due_date %} · avant le {{ doc.due_date|date:"d/m/Y" }}{% endif %}</div>
+          {% if doc.rejection_reason %}<div class="reason">Retournée : {{ doc.rejection_reason }}</div>{% endif %}
+          {% with files=doc.files.all %}{% if files %}<div class="files">{% for f in files %}<a href="{% url 'dossiers:document_download' f.pk %}" target="_blank" rel="noopener">{% icon "file" "sm" %}{% if forloop.first %}{{ f.original_name|truncatechars:26 }}{% else %}v{{ forloop.revcounter }}{% endif %}</a>{% endfor %}<span class="muted">{{ files.0.uploaded_at|date:"d/m H:i" }}</span></div>{% endif %}{% endwith %}
         </div>
-        {% include "includes/badge.html" with value=doc.status label=doc.get_status_display %}
+        <div class="doc-actions">
+          {% include "includes/badge.html" with value=doc.status label=doc.get_status_display %}
+          {% if is_open and doc.status == 'submitted' %}
+            <form method="post" action="{% url 'dossiers:review_document' dossier.pk doc.pk %}">{% csrf_token %}<input type="hidden" name="decision" value="approve"><button class="btn ok sm" type="submit">{% icon "check" "sm" %} Valider</button></form>
+            <button class="btn ghost sm" type="button" data-open-modal="m-reject-{{ doc.pk }}">Retourner</button>
+          {% endif %}
+          {% if is_open and doc.status != 'approved' %}<button class="btn subtle sm" type="button" data-open-modal="m-upload-{{ doc.pk }}" title="Déposer pour l'étudiant">{% icon "upload" "sm" %}</button>{% endif %}
+        </div>
       </div>
-      {% if doc.rejection_reason %}<div class="reason">Motif du retour : {{ doc.rejection_reason }}</div>{% endif %}
-      {% with files=doc.files.all %}{% if files %}
-        <div class="small" style="margin-top:.35rem">Versions :
-          {% for f in files %}<a href="{% url 'dossiers:document_download' f.pk %}" target="_blank" rel="noopener">{{ f.original_name|truncatechars:30 }}</a> <span class="muted">({{ f.uploaded_at|date:"d/m H:i" }})</span>{% if not forloop.last %} · {% endif %}{% endfor %}
-        </div>
-      {% endif %}{% endwith %}
       {% if is_open %}
-        {% if doc.status == 'submitted' %}
-        <div class="inline-form" style="margin-top:.5rem">
-          <form method="post" action="{% url 'dossiers:review_document' dossier.pk doc.pk %}">{% csrf_token %}
-            <input type="hidden" name="decision" value="approve"><button class="btn ok small" type="submit">Valider</button>
-          </form>
-          <form method="post" action="{% url 'dossiers:review_document' dossier.pk doc.pk %}" class="inline-form">{% csrf_token %}
-            <input type="hidden" name="decision" value="reject">
-            <input class="input" name="reason" placeholder="Motif du retour (obligatoire)" required maxlength="255" style="min-width:220px">
-            <button class="btn danger small" type="submit">Retourner</button>
-          </form>
-        </div>
-        {% endif %}
-        {% if doc.status != 'approved' %}
-        <details><summary class="small">Déposer pour l'étudiant (reçu par WhatsApp / au guichet)</summary>
-          <form method="post" enctype="multipart/form-data" action="{% url 'dossiers:upload_document' dossier.pk doc.pk %}" class="inline-form">{% csrf_token %}
-            <input class="input" type="file" name="file" accept=".pdf,.jpg,.jpeg,.png" required>
-            <button class="btn secondary small" type="submit">Déposer</button>
-          </form>
-        </details>
-        {% endif %}
+      <dialog class="modal" id="m-reject-{{ doc.pk }}">
+        <div class="modal-head"><div><h2>Retourner « {{ doc.name }} »</h2><p>L'étudiant verra ce motif et pourra déposer une nouvelle version.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+        <form class="modal-body" method="post" action="{% url 'dossiers:review_document' dossier.pk doc.pk %}">{% csrf_token %}
+          <input type="hidden" name="decision" value="reject">
+          <div class="field"><label for="rej-{{ doc.pk }}">Ce que l'étudiant doit corriger <span class="req">*</span></label><textarea class="input" id="rej-{{ doc.pk }}" name="reason" required maxlength="255" placeholder="Ex. : scan illisible, page 2 manquante, document expiré…"></textarea></div>
+          <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn danger" type="submit">Retourner la pièce</button></div>
+        </form>
+      </dialog>
+      <dialog class="modal" id="m-upload-{{ doc.pk }}">
+        <div class="modal-head"><div><h2>Déposer « {{ doc.name }} »</h2><p>Pour une pièce reçue par WhatsApp ou au guichet. PDF, JPG ou PNG, 10 Mo maximum.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+        <form class="modal-body" method="post" enctype="multipart/form-data" action="{% url 'dossiers:upload_document' dossier.pk doc.pk %}">{% csrf_token %}
+          <label class="dropzone"><input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png" required>{% icon "upload" "lg" %}<span class="fname" data-empty="Choisir un fichier ou le glisser ici">Choisir un fichier ou le glisser ici</span></label>
+          <div class="form-actions" style="margin-top:1rem"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">Déposer</button></div>
+        </form>
+      </dialog>
       {% endif %}
+    {% empty %}
+      <div class="empty">{% icon "file" %}<h3>Aucune pièce demandée</h3><p>Demandez les documents nécessaires : l'étudiant les déposera depuis son portail.</p></div>
+    {% endfor %}
     </div>
-    {% empty %}<p class="muted">Aucune pièce demandée.</p>{% endfor %}
-    {% if is_open %}
-    <details><summary>+ Demander une pièce</summary>
-      <form method="post" action="{% url 'dossiers:request_document' dossier.pk %}">{% csrf_token %}
-        <div class="form-row">{% for field in forms.request_doc %}{% include "includes/field.html" %}{% endfor %}</div>
-        <button class="btn" type="submit">Demander à l'étudiant</button>
-      </form>
-    </details>
-    {% endif %}
   </section>
 
-  <!-- Paiements -->
-  <section class="card" id="paiements">
-    <h2>Frais de service et paiements</h2>
-    <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
-      <div class="kpi"><div class="v">{{ dossier.total_fees|floatformat:0|intcomma }}</div><div class="l">Total dû ({{ dossier.agency.currency }})</div></div>
-      <div class="kpi"><div class="v">{{ dossier.total_paid|floatformat:0|intcomma }}</div><div class="l">Payé</div></div>
-      <div class="kpi {% if dossier.balance > 0 %}alert{% endif %}"><div class="v">{{ dossier.balance|floatformat:0|intcomma }}</div><div class="l">Reste à payer</div></div>
+  <section class="panel" id="paiements">
+    <div class="panel-head"><h2>Frais de service et paiements</h2>
+      {% if is_open %}<div class="row"><button class="btn ghost sm" type="button" data-open-modal="m-fee">{% icon "plus" "sm" %} Frais</button><button class="btn sm" type="button" data-open-modal="m-payment">{% icon "wallet" "sm" %} Paiement</button></div>{% endif %}</div>
+    <div class="panel-body">
+      <div class="stats" style="margin-bottom:1rem">
+        <div class="stat"><div><div class="v" style="font-size:1.2rem">{{ dossier.total_fees|money:cur }}</div><div class="l">Total des frais</div></div></div>
+        <div class="stat tone-ok"><div><div class="v" style="font-size:1.2rem">{{ dossier.total_paid|money:cur }}</div><div class="l">Encaissé</div></div></div>
+        <div class="stat {% if dossier.balance > 0 %}tone-alert{% endif %}"><div><div class="v" style="font-size:1.2rem">{{ dossier.balance|money:cur }}</div><div class="l">Reste à payer</div></div></div>
+      </div>
     </div>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Prestation</th><th>Échéance</th><th class="num">Montant</th></tr></thead>
-      <tbody>{% for f in fees %}<tr><td>{{ f.label }}</td><td>{{ f.due_date|date:"d/m/Y"|default:"—" }}</td><td class="num">{{ f.amount|floatformat:0|intcomma }}</td></tr>{% empty %}<tr><td colspan="3" class="muted">Aucun frais défini.</td></tr>{% endfor %}</tbody>
-    </table></div>
-    <h3 style="margin-top:1rem">Encaissements</h3>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Date</th><th>Reçu</th><th>Mode</th><th class="num">Montant</th><th></th></tr></thead>
-      <tbody>{% for p in payments %}
-        <tr{% if p.is_cancelled %} style="opacity:.5;text-decoration:line-through"{% endif %}>
-          <td>{{ p.paid_on|date:"d/m/Y" }}</td>
-          <td><a href="{% url 'dossiers:receipt' p.pk %}" target="_blank">{{ p.receipt_number }}</a></td>
-          <td class="small">{{ p.get_method_display }}{% if p.reference %}<br><span class="muted">{{ p.reference }}</span>{% endif %}</td>
-          <td class="num">{{ p.amount|floatformat:0|intcomma }}</td>
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th>Date</th><th>Libellé</th><th class="hide-sm">Mode</th><th class="num">Montant</th><th></th></tr></thead>
+      <tbody>
+      {% for f in fees %}<tr><td class="small muted">{{ f.created_at|date:"d/m/Y" }}</td><td>{{ f.label }}{% if f.due_date %}<br><span class="tiny muted">échéance {{ f.due_date|date:"d/m/Y" }}</span>{% endif %}</td><td class="hide-sm"><span class="badge plain t-muted">Frais</span></td><td class="num">{{ f.amount|money }}</td><td></td></tr>{% endfor %}
+      {% for p in payments %}
+        <tr{% if p.is_cancelled %} style="opacity:.55"{% endif %}>
+          <td class="small muted">{{ p.paid_on|date:"d/m/Y" }}</td>
+          <td><a href="{% url 'dossiers:receipt' p.pk %}" target="_blank">Reçu {{ p.receipt_number }}</a>{% if p.is_cancelled %}<br><span class="tiny" style="color:var(--danger)">Annulé : {{ p.cancellation_reason }}</span>{% endif %}</td>
+          <td class="hide-sm small">{{ p.get_method_display }}{% if p.reference %}<br><span class="muted tiny">{{ p.reference }}</span>{% endif %}</td>
+          <td class="num" style="color:var(--ok);font-weight:700">−{{ p.amount|money }}</td>
           <td>{% if user.is_agency_admin and not p.is_cancelled %}
-            <details><summary class="small">Annuler</summary>
-              <form method="post" action="{% url 'dossiers:cancel_payment' dossier.pk p.pk %}">{% csrf_token %}
-                <input class="input" name="reason" placeholder="Motif" required maxlength="255"><button class="btn danger small" type="submit">Confirmer</button>
-              </form></details>{% elif p.is_cancelled %}<span class="small">Annulé</span>{% endif %}</td>
-        </tr>{% empty %}<tr><td colspan="5" class="muted">Aucun paiement.</td></tr>{% endfor %}</tbody>
+            <details class="dd"><summary class="icon-btn" aria-label="Plus d'actions">{% icon "more" %}</summary><div class="dd-menu">
+              <a class="dd-item" href="{% url 'dossiers:receipt' p.pk %}" target="_blank">{% icon "receipt" %} Voir le reçu</a>
+              <button class="dd-item danger" type="button" data-open-modal="m-cancel-{{ p.pk }}">{% icon "x" %} Annuler le paiement</button></div></details>
+            <dialog class="modal" id="m-cancel-{{ p.pk }}"><div class="modal-head"><div><h2>Annuler le reçu {{ p.receipt_number }}</h2><p>Le paiement reste visible, barré, avec le motif. Le solde est recalculé.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+              <form class="modal-body" method="post" action="{% url 'dossiers:cancel_payment' dossier.pk p.pk %}">{% csrf_token %}<div class="field"><label for="cp-{{ p.pk }}">Motif <span class="req">*</span></label><input class="input" id="cp-{{ p.pk }}" name="reason" required maxlength="255"></div>
+              <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Garder le paiement</button><button class="btn danger" type="submit">Annuler le paiement</button></div></form></dialog>
+          {% endif %}</td>
+        </tr>
+      {% endfor %}
+      {% if not fees and not payments %}<tr><td colspan="5" class="muted small">Aucun frais ni paiement enregistré.</td></tr>{% endif %}
+      </tbody>
     </table></div>
-    <div class="grid grid-3" style="margin-top:.75rem">
-      <details><summary>+ Ajouter des frais</summary>
-        <form method="post" action="{% url 'dossiers:add_fee' dossier.pk %}">{% csrf_token %}{% include "includes/form.html" with form=forms.fee %}<button class="btn" type="submit">Ajouter</button></form>
-      </details>
-      <details><summary>+ Enregistrer un paiement</summary>
-        <form method="post" action="{% url 'dossiers:record_payment' dossier.pk %}">{% csrf_token %}{% include "includes/form.html" with form=forms.payment %}<button class="btn" type="submit">Enregistrer</button></form>
-      </details>
-    </div>
   </section>
 </div>
 
-<aside>
-  <section class="card">
-    <h2>Suivi</h2>
-    <p class="small"><strong>Conseiller :</strong> {{ dossier.counselor|default:"non assigné" }}</p>
-    {% if user.is_agency_admin %}
-    <form method="post" action="{% url 'dossiers:assign' dossier.pk %}" class="inline-form">{% csrf_token %}
-      {% include "includes/field.html" with field=forms.assign.counselor %}<button class="btn secondary small" type="submit">Affecter</button>
-    </form>
-    {% endif %}
-    <hr style="border:0;border-top:1px solid var(--border)">
-    <form method="post" action="{% url 'dossiers:set_status' dossier.pk %}">{% csrf_token %}
-      {% include "includes/form.html" with form=forms.status %}
-      <button class="btn secondary block" type="submit">Changer le statut</button>
-    </form>
+<aside class="stack">
+  <section class="panel">
+    <div class="panel-head"><h2>Étudiant</h2></div>
+    <div class="panel-body small">
+      <p class="row">{% icon "mail" "sm" %} <a href="mailto:{{ dossier.student.email }}">{{ dossier.student.email }}</a></p>
+      {% if dossier.student.phone %}<p class="row">{% icon "phone" "sm" %} <a href="tel:{{ dossier.student.phone }}">{{ dossier.student.phone }}</a></p>{% endif %}
+      <p class="row">{% icon "user" "sm" %} {% if student_activated %}Compte activé{% else %}<span style="color:var(--warn)">Compte pas encore activé</span>{% endif %}</p>
+      {% if dossier.guardian_name %}<hr><div class="strong">Répondant</div><p>{{ dossier.guardian_name }}{% if dossier.guardian_phone %}<br><a href="tel:{{ dossier.guardian_phone }}">{{ dossier.guardian_phone }}</a>{% endif %}</p>{% endif %}
+      {% if dossier.internal_notes %}<hr><div class="strong">Notes internes</div><p class="muted">{{ dossier.internal_notes|linebreaksbr }}</p>{% endif %}
+    </div>
   </section>
-  <section class="card">
-    <h2>Étudiant</h2>
-    <p class="small">{{ dossier.student.email }}<br>{{ dossier.student.phone|default:"" }}</p>
-    {% if dossier.guardian_name %}<p class="small"><strong>Répondant :</strong> {{ dossier.guardian_name }} {{ dossier.guardian_phone }}</p>{% endif %}
-    {% if dossier.internal_notes %}<p class="small"><strong>Notes internes :</strong><br>{{ dossier.internal_notes|linebreaksbr }}</p>{% endif %}
+  <section class="panel">
+    <div class="panel-head"><h2>Suivi</h2></div>
+    <div class="panel-body small">
+      <div class="row">{% if dossier.counselor %}<span class="avatar">{{ dossier.counselor|initials }}</span><div><div class="strong">{{ dossier.counselor.get_full_name }}</div><div class="muted">Conseiller responsable</div></div>{% else %}<span class="muted">Aucun conseiller assigné</span>{% endif %}</div>
+      {% if dossier.blocked_reason %}<div class="alert-box error" style="margin:.8rem 0 0">{% icon "alert" "sm" %}<div>{{ dossier.blocked_reason }}</div></div>{% endif %}
+      <p class="muted" style="margin-top:.8rem">Ouvert le {{ dossier.created_at|date:"d/m/Y" }}{% if dossier.workflow %} · parcours « {{ dossier.workflow.name }} »{% endif %}</p>
+    </div>
   </section>
-  <section class="card">
-    <h2>Historique</h2>
-    <ul class="timeline">
-      {% for e in events %}
-      <li>{{ e.message }}<br><span class="small muted">{{ e.created_at|date:"d/m/Y H:i" }} · {{ e.actor|default:"système" }}{% if not e.visible_to_student %} · interne{% endif %}</span></li>
-      {% empty %}<li class="muted">—</li>{% endfor %}
-    </ul>
+  <section class="panel">
+    <div class="panel-head"><h2>Historique</h2></div>
+    <div class="panel-body">
+      <ul class="feed">{% for e in events %}
+        <li><span class="dot">{% if e.kind == "document" %}{% icon "file" %}{% elif e.kind == "payment" %}{% icon "wallet" %}{% elif e.kind == "stage" %}{% icon "route" %}{% elif e.kind == "status" %}{% icon "flag" %}{% else %}{% icon "clock" %}{% endif %}</span>
+          <div>{{ e.message }}<time>{{ e.created_at|date:"d/m/Y H:i" }} · {{ e.actor.get_full_name|default:"système" }}{% if not e.visible_to_student %} · interne{% endif %}</time></div></li>
+      {% endfor %}</ul>
+    </div>
   </section>
 </aside>
 </div>
+
+{# ------------------------------------------------------------ Modales #}
+{% if is_open and current_stage %}
+<dialog class="modal" id="m-advance">
+  <div class="modal-head"><div><h2>Terminer « {{ current_stage.name }} »</h2><p>L'étudiant est prévenu immédiatement et voit la nouvelle étape sur son portail.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+  <form class="modal-body" method="post" action="{% url 'dossiers:advance_stage' dossier.pk %}">{% csrf_token %}
+    {% with blocking=current_stage.blocking_documents %}{% if blocking %}<div class="alert-box ochre">{% icon "lock" %}<div>Pièces obligatoires non validées : {% for b in blocking %}{{ b.name }}{% if not forloop.last %}, {% endif %}{% endfor %}.</div></div>{% endif %}{% endwith %}
+    {% include "includes/field.html" with field=forms.advance.next_due_date %}
+    {% if user.is_agency_admin %}{% include "includes/field.html" with field=forms.advance.force %}{% endif %}
+    <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">{% icon "check" "sm" %} Terminer l'étape</button></div>
+  </form>
+</dialog>
+<dialog class="modal" id="m-due">
+  <div class="modal-head"><div><h2>Changer l'échéance</h2><p>Étape « {{ current_stage.name }} »{% if current_stage.due_date %}, actuellement le {{ current_stage.due_date|date:"d/m/Y" }}{% endif %}.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+  <form class="modal-body" method="post" action="{% url 'dossiers:stage_due_date' dossier.pk current_stage.pk %}">{% csrf_token %}
+    {% include "includes/field.html" with field=forms.due_date.due_date %}
+    <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">Enregistrer</button></div>
+  </form>
+</dialog>
+{% endif %}
+{% if is_open %}
+<dialog class="modal" id="m-request">
+  <div class="modal-head"><div><h2>Demander une pièce</h2><p>L'étudiant est notifié et peut la déposer depuis son téléphone.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+  <form class="modal-body" method="post" action="{% url 'dossiers:request_document' dossier.pk %}">{% csrf_token %}
+    {% include "includes/form.html" with form=forms.request_doc %}
+    <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">Demander la pièce</button></div>
+  </form>
+</dialog>
+<dialog class="modal" id="m-fee">
+  <div class="modal-head"><div><h2>Ajouter des frais de service</h2><p>Montants en {{ cur }}.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+  <form class="modal-body" method="post" action="{% url 'dossiers:add_fee' dossier.pk %}">{% csrf_token %}
+    {% include "includes/form.html" with form=forms.fee %}
+    <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">Ajouter les frais</button></div>
+  </form>
+</dialog>
+<dialog class="modal" id="m-payment">
+  <div class="modal-head"><div><h2>Enregistrer un paiement</h2><p>Reste à payer : {{ dossier.balance|money:cur }}. Un reçu numéroté est généré.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+  <form class="modal-body" method="post" action="{% url 'dossiers:record_payment' dossier.pk %}">{% csrf_token %}
+    <div class="form-grid">{% for field in forms.payment %}{% include "includes/field.html" %}{% endfor %}</div>
+    <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">Enregistrer le paiement</button></div>
+  </form>
+</dialog>
+{% endif %}
+<dialog class="modal" id="m-status">
+  <div class="modal-head"><div><h2>Changer le statut</h2><p>Bloquer, refuser ou abandonner demande un motif, visible par l'étudiant.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+  <form class="modal-body" method="post" action="{% url 'dossiers:set_status' dossier.pk %}">{% csrf_token %}
+    {% include "includes/form.html" with form=forms.status %}
+    <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">Changer le statut</button></div>
+  </form>
+</dialog>
+{% if user.is_agency_admin %}
+<dialog class="modal" id="m-assign">
+  <div class="modal-head"><div><h2>Réaffecter le dossier</h2><p>Le nouveau conseiller est prévenu.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+  <form class="modal-body" method="post" action="{% url 'dossiers:assign' dossier.pk %}">{% csrf_token %}
+    {% include "includes/form.html" with form=forms.assign %}
+    <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">Réaffecter</button></div>
+  </form>
+</dialog>
+{% endif %}
+{% endwith %}
 {% endblock %}

@@ -1,0 +1,82 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}{{ prospect.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="crumbs"><a href="{% url 'console:prospects' %}">Prospects</a>{% icon "chevron-right" "sm" %}{{ prospect.name }}</div>
+    <h1>{{ prospect.name }}</h1>
+    <div class="row small muted"><span class="prio prio-{{ prospect.priority }}">{{ prospect.get_priority_display }}</span><span class="badge s-{{ prospect.status }}">{{ prospect.get_status_display }}</span>{% if prospect.segment %}<span>{{ prospect.segment }}</span>{% endif %}{% if prospect.zone %}<span>{% icon "building" "sm" %} {{ prospect.zone }}</span>{% endif %}</div>
+  </div>
+  <div class="row">
+    <button class="btn" type="button" data-open-modal="m-activity">{% icon "plus" "sm" %} Noter un échange</button>
+    <details class="dd"><summary class="btn ghost">Actions {% icon "chevron-down" "sm" %}</summary><div class="dd-menu">
+      <button class="dd-item" type="button" data-open-modal="m-status">{% icon "flag" %} Changer d'étape</button>
+      {% if not prospect.agency %}<button class="dd-item" type="button" data-open-modal="m-convert">{% icon "building" %} Créer son espace agence</button>{% endif %}
+      <a class="dd-item" href="{% url 'console:prospect_edit' prospect.pk %}">{% icon "pencil" %} Modifier la fiche</a>
+    </div></details>
+  </div>
+</div>
+
+{% if invitation_url %}
+<div class="alert-box info" style="align-items:center">{% icon "copy" %}<div class="grow"><strong>Espace créé.</strong> Lien d'activation du responsable (valable 7 jours) :
+  <div class="row" style="margin-top:.5rem"><input class="input grow" readonly value="{{ invitation_url }}" id="invite" style="max-width:560px"><button class="btn sm" type="button" data-copy="#invite">{% icon "copy" "sm" %} Copier</button>{% if prospect.whatsapp_number %}<a class="btn ghost sm" target="_blank" rel="noopener" href="https://wa.me/{{ prospect.whatsapp_number }}?text={{ invitation_url|urlencode }}">{% icon "message" "sm" %} Envoyer par WhatsApp</a>{% endif %}</div></div></div>
+{% endif %}
+
+<div class="grid cols-main">
+  <section class="panel">
+    <div class="panel-head"><h2>Historique des échanges</h2></div>
+    <div class="panel-body">
+      <ul class="feed">{% for a in activities %}
+        <li><span class="dot">{% if a.kind == "call" %}{% icon "phone" %}{% elif a.kind == "whatsapp" %}{% icon "message" %}{% elif a.kind == "email" %}{% icon "mail" %}{% elif a.kind == "demo" %}{% icon "sparkle" %}{% elif a.kind == "status" %}{% icon "flag" %}{% else %}{% icon "pencil" %}{% endif %}</span>
+          <div><strong>{{ a.get_kind_display }}</strong> — {{ a.summary|linebreaksbr }}<time>{{ a.created_at|date:"d/m/Y H:i" }}{% if a.author %} · {% firstof a.author.get_full_name a.author.email %}{% endif %}</time></div></li>
+      {% empty %}<li style="display:block"><div class="empty">{% icon "message" %}<h3>Aucun échange noté</h3><p>Notez chaque appel, message ou démo pour ne rien oublier.</p><button class="btn" type="button" data-open-modal="m-activity">Noter un échange</button></div></li>{% endfor %}</ul>
+    </div>
+  </section>
+  <aside class="stack">
+    <section class="panel">
+      <div class="panel-head"><h2>Contacter</h2></div>
+      <div class="panel-body small">
+        <div class="row" style="margin-bottom:.8rem">
+          {% if prospect.whatsapp_number %}<a class="btn sm" target="_blank" rel="noopener" href="https://wa.me/{{ prospect.whatsapp_number }}">{% icon "message" "sm" %} WhatsApp</a>{% endif %}
+          {% if prospect.whatsapp_number %}<a class="btn ghost sm" href="tel:+{{ prospect.whatsapp_number }}">{% icon "phone" "sm" %} Appeler</a>{% endif %}
+          {% if prospect.first_email %}<a class="btn ghost sm" href="mailto:{{ prospect.first_email }}">{% icon "mail" "sm" %} Courriel</a>{% endif %}
+        </div>
+        {% if prospect.phone %}<p class="row">{% icon "phone" "sm" %} {{ prospect.phone }}</p>{% endif %}
+        {% if prospect.email %}<p class="row">{% icon "mail" "sm" %} {{ prospect.email }}</p>{% endif %}
+        {% if prospect.website_url %}<p class="row">{% icon "globe" "sm" %} <a href="{{ prospect.website_url }}" target="_blank" rel="noopener">{{ prospect.website|truncatechars:40 }}</a></p>{% endif %}
+        {% if prospect.decision_maker %}<p class="row" style="align-items:flex-start">{% icon "user" "sm" %} {{ prospect.decision_maker }}</p>{% endif %}
+        {% if prospect.channel %}<p class="muted">Canal conseillé : {{ prospect.channel }}</p>{% endif %}
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>Suivi commercial</h2></div>
+      <div class="panel-body small">
+        <p><span class="muted">Commercial :</span> {% if prospect.owner %}{{ prospect.owner.get_full_name|default:prospect.owner.email }}{% else %}non attribué{% endif %}</p>
+        <p><span class="muted">Prochaine relance :</span> {% if prospect.next_follow_up %}<strong {% if prospect.is_follow_up_due %}style="color:var(--danger)"{% endif %}>{{ prospect.next_follow_up|date:"d/m/Y" }}</strong>{% else %}aucune{% endif %}</p>
+        {% if prospect.estimated_dossiers %}<p><span class="muted">Volume estimé :</span> {{ prospect.estimated_dossiers }} dossiers / an</p>{% endif %}
+        {% if prospect.lost_reason %}<p><span class="muted">Motif :</span> {{ prospect.lost_reason }}</p>{% endif %}
+        {% if prospect.agency %}<div class="alert-box info" style="margin:.4rem 0 0">{% icon "building" "sm" %}<div>Espace agence : <strong>{{ prospect.agency.name }}</strong> — {{ prospect.agency.get_plan_display }}</div></div>{% endif %}
+        {% if prospect.notes %}<hr><p>{{ prospect.notes|linebreaksbr }}</p>{% endif %}
+        {% if prospect.source %}<hr><p class="tiny muted">Source : {{ prospect.source|urlize }}</p>{% endif %}
+      </div>
+    </section>
+  </aside>
+</div>
+
+<dialog class="modal" id="m-activity">
+  <div class="modal-head"><div><h2>Noter un échange</h2><p>Un premier contact fait passer le prospect en « Contacté ».</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+  <form class="modal-body" method="post" action="{% url 'console:prospect_activity' prospect.pk %}">{% csrf_token %}{% include "includes/form.html" with form=activity_form %}
+    <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">Enregistrer</button></div></form>
+</dialog>
+<dialog class="modal" id="m-status">
+  <div class="modal-head"><div><h2>Changer d'étape</h2></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+  <form class="modal-body" method="post" action="{% url 'console:prospect_status' prospect.pk %}">{% csrf_token %}{% include "includes/form.html" with form=status_form %}
+    <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">Enregistrer</button></div></form>
+</dialog>
+{% if not prospect.agency %}
+<dialog class="modal" id="m-convert">
+  <div class="modal-head"><div><h2>Créer l'espace de {{ prospect.name }}</h2><p>Essai gratuit de 14 jours avec les parcours par défaut. Vous obtiendrez un lien d'activation à envoyer au responsable.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+  <form class="modal-body" method="post" action="{% url 'console:prospect_convert' prospect.pk %}">{% csrf_token %}<div class="form-grid">{% for field in convert_form %}{% include "includes/field.html" %}{% endfor %}</div>
+    <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">Créer l'espace</button></div></form>
+</dialog>
+{% endif %}
+{% endblock %}

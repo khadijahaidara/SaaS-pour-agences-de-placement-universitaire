@@ -8,6 +8,15 @@ class LoginView(auth_views.LoginView):
     template_name = "accounts/login.html"
     redirect_authenticated_user = True
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        slug = self.request.GET.get("agence", "")
+        if slug:
+            from agencies.models import Agency
+
+            ctx["login_agency"] = Agency.objects.filter(slug=slug, is_active=True).first()
+        return ctx
+
 
 class InvitationView(auth_views.PasswordResetConfirmView):
     """Lien d'activation : l'étudiant ou le conseiller choisit son mot de passe."""
@@ -41,6 +50,6 @@ def home(request):
         return redirect("portal:home")
     if user.is_agency_staff:
         return redirect("dossiers:dashboard")
-    if user.is_staff:
-        return redirect("admin:index")
+    if user.role == user.Role.PLATFORM_ADMIN:
+        return redirect("console:dashboard")
     return redirect("accounts:logout_page")

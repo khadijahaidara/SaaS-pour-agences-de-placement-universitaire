@@ -1,10 +1,13 @@
-<div class="field">
+<div class="field{% if field.errors %} has-error{% endif %}{% if span %} span-2{% endif %}">
   {% if field.is_hidden %}{{ field }}{% elif field.field.widget.input_type == "checkbox" %}
-  <label>{{ field }} {{ field.label }}</label>
+  <label class="check-row">{{ field }} <span>{{ field.label }}</span></label>
+  {% elif field.field.widget.input_type == "file" %}
+  <span class="label">{{ field.label }}{% if field.field.required %} <span class="req">*</span>{% endif %}</span>
+  <label class="dropzone">{{ field }}<svg class="ic lg" aria-hidden="true"><use href="#i-upload"></use></svg><span><span class="fname" data-empty="Choisir un fichier ou le glisser ici">Choisir un fichier ou le glisser ici</span><br><span class="tiny muted">{{ field.help_text|default:"" }}</span></span></label>
   {% else %}
-  <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+  <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="req">*</span>{% endif %}</label>
   {{ field }}
   {% endif %}
-  {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+  {% if field.help_text and field.field.widget.input_type != "file" %}<div class="help">{{ field.help_text }}</div>{% endif %}
   {% if field.errors %}<div class="errors">{{ field.errors|join:" " }}</div>{% endif %}
 </div>

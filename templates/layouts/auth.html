@@ -1,0 +1,45 @@
+{% extends "base.html" %}{% load ui %}
+{% block body %}
+<div class="auth">
+  <section class="auth-art" aria-hidden="false">
+    <svg class="routes" viewBox="0 120 600 360" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <defs>
+        <radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#0f766e" stop-opacity=".55"/><stop offset="1" stop-color="#0f766e" stop-opacity="0"/></radialGradient>
+      </defs>
+      <circle cx="250" cy="430" r="150" fill="url(#glow)"/>
+      <g fill="none" stroke-linecap="round">
+        <path d="M250 430 C 260 300, 300 220, 330 170" stroke="#d9912b" stroke-width="2" stroke-dasharray="2 7"/>
+        <path d="M250 430 C 160 300, 90 210, 70 150" stroke="#8fa0d8" stroke-width="1.6" stroke-dasharray="2 7"/>
+        <path d="M250 430 C 270 360, 300 320, 300 290" stroke="#8fa0d8" stroke-width="1.6" stroke-dasharray="2 7"/>
+        <path d="M250 430 C 360 330, 430 250, 470 220" stroke="#8fa0d8" stroke-width="1.6" stroke-dasharray="2 7"/>
+        <path d="M250 430 C 200 440, 170 430, 150 420" stroke="#8fa0d8" stroke-width="1.6" stroke-dasharray="2 7"/>
+      </g>
+      <g font-family="Manrope, sans-serif" font-size="13" fill="#c9cfe6">
+        <circle cx="250" cy="430" r="7" fill="#d9912b"/><circle cx="250" cy="430" r="16" fill="none" stroke="#d9912b" stroke-opacity=".5"/>
+        <text x="266" y="452" fill="#fff" font-weight="700">Bamako</text>
+        <circle cx="330" cy="170" r="4.5" fill="#fff"/><text x="342" y="174">Paris</text>
+        <circle cx="70" cy="150" r="4.5" fill="#fff"/><text x="82" y="154">Montréal</text>
+        <circle cx="300" cy="290" r="4.5" fill="#fff"/><text x="312" y="294">Casablanca</text>
+        <circle cx="470" cy="220" r="4.5" fill="#fff"/><text x="482" y="224">Istanbul</text>
+        <circle cx="150" cy="420" r="4.5" fill="#fff"/><text x="104" y="404">Dakar</text>
+      </g>
+    </svg>
+    <a class="brandmark" href="{% url 'home' %}"><span class="logo-dot">{% icon "plane" %}</span><b>NEURALIS Mobility</b></a>
+    <div class="pitch">
+      {% block pitch %}
+      <h1>Chaque étudiant suivi, de Bamako jusqu'à son arrivée.</h1>
+      <p>Les pièces, les étapes, les échéances et les paiements de tous vos dossiers au même endroit. Vos étudiants savent où ils en sont sans vous appeler.</p>
+      <div class="proof">
+        <div><b>Pièces centralisées</b>fini les documents perdus sur WhatsApp</div>
+        <div><b>Portail étudiant</b>prochaine action toujours visible</div>
+      </div>
+      {% endblock %}
+    </div>
+  </section>
+  <section class="auth-form">
+    <div class="box {% block box_class %}{% endblock %}">
+      {% block content %}{% endblock %}
+    </div>
+  </section>
+</div>
+{% endblock %}

@@ -1,15 +1,22 @@
-{% extends "base.html" %}{% block title %}Connexion{% endblock %}
+{% extends "layouts/auth.html" %}{% load ui %}{% block title %}Connexion{% endblock %}
 {% block content %}
-<div class="auth-box card">
-  <h1>Connexion</h1>
-  <p class="muted">Espace agence et portail étudiant.</p>
-  <form method="post">{% csrf_token %}
-    {% if form.non_field_errors %}<ul class="messages"><li class="error">Courriel ou mot de passe incorrect.</li></ul>{% endif %}
-    <div class="field"><label for="id_username">Courriel</label><input class="input" type="email" name="username" id="id_username" autocomplete="email" required value="{{ form.username.value|default:'' }}"></div>
-    <div class="field"><label for="id_password">Mot de passe</label><input class="input" type="password" name="password" id="id_password" autocomplete="current-password" required></div>
-    <input type="hidden" name="next" value="{{ next }}">
-    <button class="btn block" type="submit">Se connecter</button>
-  </form>
-  <p class="small"><a href="{% url 'accounts:password_reset' %}">Mot de passe oublié ?</a></p>
+{% if login_agency %}
+<div class="agency-brand-login">
+  <span class="avatar lg sq" style="background:{{ login_agency.brand_color }};color:#fff">{% if login_agency.logo %}<img src="{% url 'agency_logo' login_agency.slug %}" alt="">{% else %}{{ login_agency.initials }}{% endif %}</span>
+  <div><div class="strong">{{ login_agency.name }}</div><div class="small muted">Portail de suivi des dossiers</div></div>
 </div>
+{% endif %}
+<h1>Bon retour</h1>
+<p class="lead">Connectez-vous pour suivre vos dossiers.</p>
+<form method="post" novalidate>{% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert-box error">{% icon "alert" %}<div>Courriel ou mot de passe incorrect. Vérifiez la saisie ou réinitialisez votre mot de passe.</div></div>{% endif %}
+  <div class="field"><label for="id_username">Courriel</label><input class="input" type="email" name="username" id="id_username" autocomplete="email" required autofocus value="{{ form.username.value|default:'' }}"></div>
+  <div class="field">
+    <div class="row between"><label for="id_password">Mot de passe</label><a class="small" href="{% url 'accounts:password_reset' %}">Mot de passe oublié ?</a></div>
+    <input class="input" type="password" name="password" id="id_password" autocomplete="current-password" required>
+  </div>
+  <input type="hidden" name="next" value="{{ next }}">
+  <button class="btn block" type="submit">Se connecter</button>
+</form>
+<p class="auth-switch">Vous dirigez une agence ? <a href="{% url 'signup' %}">Créer l'espace de votre agence</a> — essai gratuit, sans engagement.</p>
 {% endblock %}

@@ -1,0 +1,41 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Prospects{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Prospects</h1><p>{{ total }} prospect{{ total|pluralize }}{% if querystring %} correspondant aux filtres{% endif %}. Changez l'étape directement dans la liste.</p></div>
+<div class="row"><a class="btn ghost" href="{% url 'console:prospect_import' %}">{% icon "upload" "sm" %} Importer</a><a class="btn" href="{% url 'console:prospect_create' %}">{% icon "plus" "sm" %} Nouveau prospect</a></div></div>
+<section class="panel">
+  <form class="filters" method="get">
+    <div class="field wide"><label for="id_q">Recherche</label>{{ form.q }}</div>
+    <div class="field"><label for="id_priority">Priorité</label>{{ form.priority }}</div>
+    <div class="field"><label for="id_status">Étape</label>{{ form.status }}</div>
+    <div class="field"><label for="id_segment">Segment</label>{{ form.segment }}</div>
+    <div class="field"><label for="id_owner">Commercial</label>{{ form.owner }}</div>
+    <div class="row"><label class="check-row small">{{ form.due }} Relances dues</label><button class="btn ghost" type="submit">{% icon "filter" "sm" %} Filtrer</button>{% if querystring %}<a class="btn subtle" href="{% url 'console:prospects' %}">Effacer</a>{% endif %}</div>
+  </form>
+  <div class="table-wrap" style="border-top:1px solid var(--line)"><table class="data">
+    <thead><tr><th>Prospect</th><th class="hide-sm">Contact</th><th style="min-width:190px">Étape</th><th class="hide-sm">Relance</th><th></th></tr></thead>
+    <tbody>
+    {% for p in page %}
+      <tr>
+        <td><a class="cell-main rowlink" href="{% url 'console:prospect_detail' p.pk %}"><span class="prio prio-{{ p.priority }}">{{ p.priority }}</span><span style="min-width:0"><span class="t">{{ p.name }}</span><br><span class="s">{{ p.segment|default:"—" }}{% if p.zone %} · {{ p.zone }}{% endif %}</span></span></a></td>
+        <td class="hide-sm small">{% if p.phone %}<div class="nowrap">{{ p.phone|truncatechars:24 }}</div>{% endif %}{% if p.first_email %}<div class="muted">{{ p.first_email|truncatechars:30 }}</div>{% endif %}{% if not p.phone and not p.first_email %}<span class="muted">—</span>{% endif %}</td>
+        <td><form method="post" action="{% url 'console:prospect_status' p.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <select class="input" name="status" data-autosubmit aria-label="Étape de {{ p.name }}">{% for v, l in status_choices %}<option value="{{ v }}" {% if v == p.status %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></form></td>
+        <td class="hide-sm small nowrap">{% if p.next_follow_up %}<span {% if p.is_follow_up_due %}style="color:var(--danger);font-weight:700"{% endif %}>{{ p.next_follow_up|date:"d/m/Y" }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td class="num"><details class="dd"><summary class="icon-btn" aria-label="Actions">{% icon "more" %}</summary><div class="dd-menu">
+          <a class="dd-item" href="{% url 'console:prospect_detail' p.pk %}">{% icon "arrow-right" %} Ouvrir la fiche</a>
+          {% if p.whatsapp_number %}<a class="dd-item" target="_blank" rel="noopener" href="https://wa.me/{{ p.whatsapp_number }}">{% icon "message" %} WhatsApp</a>{% endif %}
+          {% if p.first_email %}<a class="dd-item" href="mailto:{{ p.first_email }}">{% icon "mail" %} Écrire un courriel</a>{% endif %}
+          {% if p.website_url %}<a class="dd-item" target="_blank" rel="noopener" href="{{ p.website_url }}">{% icon "globe" %} Site web</a>{% endif %}
+          <a class="dd-item" href="{% url 'console:prospect_edit' p.pk %}">{% icon "pencil" %} Modifier</a>
+        </div></details></td>
+      </tr>
+    {% empty %}<tr><td colspan="5"><div class="empty">{% icon "target" %}<h3>Aucun prospect</h3><p>{% if querystring %}Aucun prospect ne correspond à ces filtres.{% else %}Importez votre fichier de prospection pour commencer.{% endif %}</p></div></td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+  {% if page.paginator.num_pages > 1 %}
+  <div class="row between" style="padding:.8rem 1.2rem;border-top:1px solid var(--line)">
+    <span class="small muted">Page {{ page.number }} sur {{ page.paginator.num_pages }}</span>
+    <div class="row">{% if page.has_previous %}<a class="btn ghost sm" href="?{{ querystring }}&page={{ page.previous_page_number }}">Précédente</a>{% endif %}{% if page.has_next %}<a class="btn ghost sm" href="?{{ querystring }}&page={{ page.next_page_number }}">Suivante</a>{% endif %}</div>
+  </div>{% endif %}
+</section>
+{% endblock %}

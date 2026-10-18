@@ -1,2 +1,2 @@
-{% if form.non_field_errors %}<ul class="messages"><li class="error">{{ form.non_field_errors|join:" " }}</li></ul>{% endif %}
+{% if form.non_field_errors %}<div class="alert-box error">{{ form.non_field_errors|join:" " }}</div>{% endif %}
 {% for field in form %}{% include "includes/field.html" %}{% endfor %}

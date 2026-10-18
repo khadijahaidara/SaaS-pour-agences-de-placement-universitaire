@@ -1,2 +1,2 @@
-{% extends "base.html" %}{% block title %}Introuvable{% endblock %}
-{% block content %}<div class="card auth-box"><h1>Page introuvable</h1><p class="muted">Cette page n'existe pas ou vous n'y avez pas accès.</p><a class="btn" href="/">Retour à l'accueil</a></div>{% endblock %}
+{% extends "layouts/auth.html" %}{% block title %}Page introuvable{% endblock %}
+{% block content %}<h1>Page introuvable</h1><p class="lead">Cette page n'existe pas, ou vous n'y avez pas accès avec ce compte.</p><a class="btn" href="/">Retour à l'accueil</a>{% endblock %}

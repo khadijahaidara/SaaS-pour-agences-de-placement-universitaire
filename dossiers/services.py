@@ -98,6 +98,8 @@ def create_dossier(
     copiés depuis le modèle choisi : modifier le modèle ensuite n'altère pas
     les dossiers existants.
     """
+    if not agency.is_operational:
+        raise BusinessRuleError("L'abonnement de l'agence n'est pas actif : création de dossier impossible.")
     email = student_email.strip().lower()
     student = User.objects.filter(email=email).first()
     created_account = False

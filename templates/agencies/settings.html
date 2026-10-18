@@ -1,0 +1,53 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Paramètres de l'agence{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Paramètres et portail</h1><p>Ces informations apparaissent sur le portail de vos étudiants et sur les reçus.</p></div></div>
+<div class="grid cols-main">
+<form method="post" enctype="multipart/form-data" class="panel">{% csrf_token %}
+  <div class="panel-body">
+    {% if form.non_field_errors %}<div class="alert-box error">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+    <div class="form-section"><h2>Identité</h2>
+      <div class="form-grid">
+        {% include "includes/field.html" with field=form.name span=1 %}
+        {% include "includes/field.html" with field=form.city %}
+        {% include "includes/field.html" with field=form.address %}
+        {% include "includes/field.html" with field=form.phone %}
+        {% include "includes/field.html" with field=form.whatsapp %}
+        {% include "includes/field.html" with field=form.email %}
+        {% include "includes/field.html" with field=form.website %}
+        {% include "includes/field.html" with field=form.currency %}
+      </div>
+    </div>
+    <div class="form-section"><h2>Portail étudiant</h2>
+      <div class="form-grid">
+        <div class="field span-2"><span class="label">Logo</span>
+          <div class="row">{% if agency.logo %}<span class="avatar lg sq"><img src="{% url 'agency_logo' agency.slug %}" alt="Logo actuel"></span>{% endif %}
+          <label class="dropzone grow">{{ form.logo }}{% icon "upload" "lg" %}<span><span class="fname" data-empty="PNG ou JPG, carré de préférence, 1 Mo maximum">PNG ou JPG, carré de préférence, 1 Mo maximum</span></span></label></div>
+          {% if form.logo.errors %}<div class="errors">{{ form.logo.errors|join:" " }}</div>{% endif %}
+        </div>
+        {% include "includes/field.html" with field=form.brand_color %}
+        {% include "includes/field.html" with field=form.welcome_message %}
+      </div>
+    </div>
+    <div class="form-actions"><button class="btn" type="submit">Enregistrer</button></div>
+  </div>
+</form>
+<aside class="stack">
+  <section class="panel">
+    <div class="panel-head"><h2>Abonnement</h2></div>
+    <div class="panel-body small">
+      <p><span class="badge s-{{ agency.plan }}">{{ agency.get_plan_display }}</span></p>
+      {% if agency.plan == "trial" %}<p>{% if agency.is_operational %}Il reste <strong>{{ agency.trial_days_left }} jour{{ agency.trial_days_left|pluralize }}</strong> d'essai (jusqu'au {{ agency.trial_ends_at|date:"d/m/Y" }}).{% else %}L'essai est terminé. Vos données sont conservées.{% endif %}</p>
+      {% elif agency.paid_until %}<p>Payé jusqu'au <strong>{{ agency.paid_until|date:"d/m/Y" }}</strong>.</p>{% endif %}
+      <p class="muted">Pour activer ou renouveler l'abonnement, contactez l'équipe NEURALIS : contact@neuralis-mali.com.</p>
+    </div>
+  </section>
+  <section class="panel">
+    <div class="panel-head"><h2>Lien de connexion de vos étudiants</h2></div>
+    <div class="panel-body small">
+      <p class="muted">Ce lien affiche votre logo sur la page de connexion.</p>
+      <div class="row"><input class="input grow" id="portal-link" readonly value="{{ request.scheme }}://{{ request.get_host }}{% url 'accounts:login' %}?agence={{ agency.slug }}"><button class="btn ghost sm" type="button" data-copy="#portal-link">{% icon "copy" "sm" %}</button></div>
+    </div>
+  </section>
+</aside>
+</div>
+{% endblock %}

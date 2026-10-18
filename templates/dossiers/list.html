@@ -1,35 +1,39 @@
-{% extends "base.html" %}{% block title %}Dossiers{% endblock %}
+{% extends "layouts/app.html" %}{% load ui humanize %}{% block title %}Dossiers étudiants{% endblock %}
 {% block content %}
-<div class="page-head"><h1>Dossiers</h1><a class="btn" href="{% url 'dossiers:create' %}">+ Nouveau dossier</a></div>
-<form class="card inline-form" method="get">
-  {% for field in form %}{% include "includes/field.html" %}{% endfor %}
-  <button class="btn secondary" type="submit">Filtrer</button>
-</form>
-<div class="card table-wrap">
-<table>
-  <thead><tr><th>Référence</th><th>Étudiant</th><th>Destination</th><th>Programme</th><th>Statut</th><th>Conseiller</th><th>Dernière activité</th></tr></thead>
-  <tbody>
-  {% for d in page %}
-    <tr>
-      <td><a href="{% url 'dossiers:detail' d.pk %}">{{ d.reference }}</a></td>
-      <td>{{ d.student }}<br><span class="small muted">{{ d.student.phone }}</span></td>
-      <td>{{ d.destination_country }}{% if d.destination_city %} — {{ d.destination_city }}{% endif %}</td>
-      <td class="small">{{ d.program|default:"—" }}<br><span class="muted">{{ d.institution }}</span></td>
-      <td>{% include "includes/badge.html" with value=d.status label=d.get_status_display %}</td>
-      <td class="small">{{ d.counselor|default:"—" }}</td>
-      <td class="small">{{ d.last_activity_at|timesince }}</td>
-    </tr>
-  {% empty %}
-    <tr><td colspan="7" class="muted">Aucun dossier ne correspond.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
-{% if page.paginator.num_pages > 1 %}
-<div class="pagination">
-  {% if page.has_previous %}<a class="btn secondary small" href="?{{ querystring }}&page={{ page.previous_page_number }}">←</a>{% endif %}
-  <span class="small">Page {{ page.number }} / {{ page.paginator.num_pages }}</span>
-  {% if page.has_next %}<a class="btn secondary small" href="?{{ querystring }}&page={{ page.next_page_number }}">→</a>{% endif %}
+<div class="page-head">
+  <div><h1>Dossiers étudiants</h1><p>{{ page.paginator.count }} dossier{{ page.paginator.count|pluralize }}{% if querystring %} correspondant{{ page.paginator.count|pluralize }} aux filtres{% endif %}.</p></div>
+  <a class="btn" href="{% url 'dossiers:create' %}">{% icon "plus" %} Nouveau dossier</a>
 </div>
-{% endif %}
-</div>
+<section class="panel">
+  <form class="filters" method="get">
+    <div class="field wide"><label for="id_q">Recherche</label>{{ form.q }}</div>
+    <div class="field"><label for="id_status">Statut</label>{{ form.status }}</div>
+    <div class="field"><label for="id_destination">Destination</label>{{ form.destination }}</div>
+    <div class="field"><label for="id_counselor">Conseiller</label>{{ form.counselor }}</div>
+    <div class="row"><button class="btn ghost" type="submit">{% icon "filter" "sm" %} Filtrer</button>{% if querystring %}<a class="btn subtle" href="{% url 'dossiers:list' %}">Effacer</a>{% endif %}</div>
+  </form>
+  <div class="table-wrap" style="border-top:1px solid var(--line)"><table class="data">
+    <thead><tr><th>Étudiant</th><th>Destination</th><th class="hide-sm">Programme</th><th>Statut</th><th class="hide-sm">Conseiller</th><th class="hide-sm">Activité</th></tr></thead>
+    <tbody>
+    {% for d in page %}
+      <tr>
+        <td><a class="cell-main rowlink" href="{% url 'dossiers:detail' d.pk %}"><span class="avatar">{{ d.student|initials }}</span><span><span class="t">{{ d.student.get_full_name|default:d.student.email }}</span><br><span class="s">{{ d.reference }}</span></span></a></td>
+        <td><strong>{{ d.destination_country }}</strong>{% if d.destination_city %}<br><span class="small muted">{{ d.destination_city }}</span>{% endif %}</td>
+        <td class="hide-sm small">{{ d.program|default:"—" }}{% if d.institution %}<br><span class="muted">{{ d.institution }}</span>{% endif %}</td>
+        <td>{% include "includes/badge.html" with value=d.status label=d.get_status_display %}</td>
+        <td class="hide-sm small">{{ d.counselor.get_full_name|default:"—" }}</td>
+        <td class="hide-sm small muted nowrap">{{ d.last_activity_at|naturaltime }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="6"><div class="empty">{% icon "inbox" %}<h3>Aucun dossier</h3><p>{% if querystring %}Aucun dossier ne correspond à ces filtres.{% else %}Créez le premier dossier pour commencer le suivi.{% endif %}</p>{% if not querystring %}<a class="btn" href="{% url 'dossiers:create' %}">{% icon "plus" %} Nouveau dossier</a>{% endif %}</div></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if page.paginator.num_pages > 1 %}
+  <div class="row between" style="padding:.8rem 1.2rem;border-top:1px solid var(--line)">
+    <span class="small muted">Page {{ page.number }} sur {{ page.paginator.num_pages }}</span>
+    <div class="row">{% if page.has_previous %}<a class="btn ghost sm" href="?{{ querystring }}&page={{ page.previous_page_number }}">Précédente</a>{% endif %}{% if page.has_next %}<a class="btn ghost sm" href="?{{ querystring }}&page={{ page.next_page_number }}">Suivante</a>{% endif %}</div>
+  </div>
+  {% endif %}
+</section>
 {% endblock %}

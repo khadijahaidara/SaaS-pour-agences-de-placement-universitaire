@@ -1,0 +1,25 @@
+{% extends "base.html" %}{% load ui humanize %}
+{% block head %}<style>:root { --brand: {{ portal_agency.brand_color|default:"#0f766e" }}; }</style>{% endblock %}
+{% block body %}
+<header class="portal-top">
+  <div class="inner">
+    <span class="avatar sq" style="background:var(--brand);color:#fff">{% if portal_agency.logo %}<img src="{% url 'agency_logo' portal_agency.slug %}" alt="">{% else %}{{ portal_agency.initials }}{% endif %}</span>
+    <div class="grow"><div class="agency-name">{{ portal_agency.name }}</div><div class="tiny muted">Suivi de votre dossier d'études</div></div>
+    <details class="dd">
+      <summary class="icon-btn" aria-label="Notifications">{% icon "bell" %}{% if unread_notifications_count %}<span class="dot">{{ unread_notifications_count }}</span>{% endif %}</summary>
+      <div class="dd-menu notif-menu">
+        <div class="dd-head"><strong>Notifications</strong></div>
+        {% for n in recent_notifications %}
+          <form method="post" action="{% url 'dossiers:notification_open' n.pk %}">{% csrf_token %}<button class="notif-item dd-item {% if not n.is_read %}unread{% endif %}" type="submit" style="display:block">{{ n.message|truncatechars:110 }}<time>{{ n.created_at|naturaltime }}</time></button></form>
+        {% empty %}<p class="small muted" style="padding:.6rem .7rem;margin:0">Rien de nouveau.</p>{% endfor %}
+      </div>
+    </details>
+    <details class="dd">
+      <summary class="row" style="gap:.4rem" aria-label="Mon compte"><span class="avatar" style="background:color-mix(in srgb, var(--brand) 14%, white);color:var(--brand)">{{ user|initials }}</span>{% icon "chevron-down" "sm" %}</summary>
+      <div class="dd-menu"><div class="dd-head"><div class="strong">{{ user.get_full_name }}</div><div class="tiny muted">{{ user.email }}</div></div>
+        <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="dd-item danger" type="submit">{% icon "logout" %} Se déconnecter</button></form></div>
+    </details>
+  </div>
+</header>
+<main class="portal-main">{% block content %}{% endblock %}</main>
+{% endblock %}

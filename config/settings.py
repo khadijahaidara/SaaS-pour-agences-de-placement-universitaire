@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     "agencies",
     "dossiers",
     "portal",
+    "console",
 ]
 
 MIDDLEWARE = [

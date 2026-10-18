@@ -1,0 +1,47 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Console NEURALIS{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Vue d'ensemble commerciale</h1><p>Prospection des agences de Bamako et suivi des espaces clients.</p></div>
+<div class="row"><a class="btn ghost" href="{% url 'console:prospect_import' %}">{% icon "upload" "sm" %} Importer</a><a class="btn" href="{% url 'console:prospect_create' %}">{% icon "plus" "sm" %} Nouveau prospect</a></div></div>
+
+<div class="stats">
+  <a class="stat tone-river" href="{% url 'console:prospects' %}" style="color:inherit;text-decoration:none"><span class="ic-wrap">{% icon "target" %}</span><div><div class="v">{{ stats.prospects }}</div><div class="l">Prospects</div></div></a>
+  <a class="stat tone-ochre" href="{% url 'console:prospects' %}?priority=P1" style="color:inherit;text-decoration:none"><span class="ic-wrap">{% icon "flag" %}</span><div><div class="v">{{ stats.p1_open }}</div><div class="l">P1 encore ouverts</div></div></a>
+  <a class="stat {% if stats.due %}tone-alert{% endif %}" href="{% url 'console:prospects' %}?due=on" style="color:inherit;text-decoration:none"><span class="ic-wrap">{% icon "calendar" %}</span><div><div class="v">{{ stats.due }}</div><div class="l">Relances dues</div></div></a>
+  <a class="stat" href="{% url 'console:agencies' %}" style="color:inherit;text-decoration:none"><span class="ic-wrap">{% icon "clock" %}</span><div><div class="v">{{ stats.trials }}</div><div class="l">Agences en essai</div></div></a>
+  <a class="stat tone-ok" href="{% url 'console:agencies' %}" style="color:inherit;text-decoration:none"><span class="ic-wrap">{% icon "building" %}</span><div><div class="v">{{ stats.customers }}</div><div class="l">Clients actifs</div></div></a>
+  <div class="stat"><span class="ic-wrap">{% icon "folder" %}</span><div><div class="v">{{ stats.dossiers }}</div><div class="l">Dossiers gérés</div></div></div>
+</div>
+
+<div class="grid cols-main">
+  <div class="stack">
+    <section class="panel">
+      <div class="panel-head"><h2>Entonnoir de conversion</h2><span class="small muted">hors perdus et hors cible</span></div>
+      <div class="panel-body"><div class="funnel">
+        {% for p in pipeline %}<a class="funnel-step" href="{% url 'console:prospects' %}?status={{ p.key }}"><span>{{ p.label }}</span><span class="funnel-bar" style="width:{{ p.pct }}%"></span><span class="n">{{ p.n }}</span></a>{% endfor %}
+      </div></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>Relances à faire</h2><a class="small" href="{% url 'console:prospects' %}?due=on">Toutes</a></div>
+      <div class="panel-body flush"><div class="table-wrap"><table class="data"><tbody>
+        {% for p in due %}<tr><td><a class="cell-main rowlink" href="{% url 'console:prospect_detail' p.pk %}"><span class="prio prio-{{ p.priority }}">{{ p.priority }}</span><span><span class="t">{{ p.name }}</span><br><span class="s">{{ p.get_status_display }}{% if p.zone %} · {{ p.zone }}{% endif %}</span></span></a></td><td class="num small" style="color:var(--danger)">{{ p.next_follow_up|date:"d/m" }}</td></tr>
+        {% empty %}<tr><td><div class="empty" style="padding:1.2rem">{% icon "check" %}<p>Aucune relance en retard.</p></div></td></tr>{% endfor %}
+      </tbody></table></div></div>
+    </section>
+  </div>
+  <div class="stack">
+    <section class="panel">
+      <div class="panel-head"><h2>P1 jamais contactés</h2></div>
+      <div class="panel-body flush"><div class="table-wrap"><table class="data"><tbody>
+        {% for p in p1_new %}<tr><td><a class="rowlink cell-main" href="{% url 'console:prospect_detail' p.pk %}"><span><span class="t">{{ p.name }}</span><br><span class="s">{{ p.segment|default:"—" }}</span></span></a></td><td class="num">{% if p.whatsapp_number %}<a class="icon-btn" title="WhatsApp" target="_blank" rel="noopener" href="https://wa.me/{{ p.whatsapp_number }}">{% icon "message" %}</a>{% endif %}</td></tr>
+        {% empty %}<tr><td class="small muted">Tous les P1 ont été contactés.</td></tr>{% endfor %}
+      </tbody></table></div></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>Dernières agences</h2></div>
+      <div class="panel-body"><ul class="feed">{% for a in recent %}<li><span class="dot">{% icon "building" %}</span><div><strong>{{ a.name }}</strong> <span class="badge s-{{ a.plan }}">{{ a.get_plan_display }}</span><time>créée le {{ a.created_at|date:"d/m/Y" }}{% if a.signup_source == "self_signup" %} · inscription en ligne{% endif %}</time></div></li>{% empty %}<li class="small muted" style="display:block">Aucune agence.</li>{% endfor %}</ul>
+      {% if expiring %}<div class="alert-box ochre" style="margin:1rem 0 0">{% icon "clock" %}<div>Essai qui se termine bientôt : {% for a in expiring %}<strong>{{ a.name }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %}.</div></div>{% endif %}
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

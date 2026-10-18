@@ -1,20 +1,31 @@
-{% extends "base.html" %}{% block title %}Équipe{% endblock %}
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Équipe{% endblock %}
 {% block content %}
-<h1>Équipe de l'agence</h1>
+<div class="page-head"><div><h1>Équipe de l'agence</h1><p>Les conseillers voient uniquement les dossiers qui leur sont confiés. Les responsables voient toute l'agence.</p></div>
+<button class="btn" type="button" data-open-modal="m-member">{% icon "plus" "sm" %} Inviter un membre</button></div>
 {% if invitation_url %}
-<div class="card" style="border-color:var(--primary)"><h3>Lien d'activation</h3>
-<div class="copy-box"><input class="input" readonly value="{{ invitation_url }}" id="invite"><button class="btn secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('invite').value);this.textContent='Copié ✓'">Copier</button></div></div>
+<div class="alert-box info" style="align-items:center">{% icon "copy" %}<div class="grow"><strong>Lien d'activation</strong> — transmettez-le au nouveau membre (valable 7 jours).
+  <div class="row" style="margin-top:.5rem"><input class="input grow" readonly value="{{ invitation_url }}" id="invite" style="max-width:560px"><button class="btn sm" type="button" data-copy="#invite">{% icon "copy" "sm" %} Copier</button></div></div></div>
 {% endif %}
-<div class="grid grid-2">
-<section class="card table-wrap"><table>
-  <thead><tr><th>Nom</th><th>Courriel</th><th>Rôle</th><th>Statut</th><th></th></tr></thead>
+<section class="panel"><div class="table-wrap"><table class="data">
+  <thead><tr><th>Membre</th><th>Rôle</th><th class="hide-sm">Dossiers suivis</th><th>Statut</th><th></th></tr></thead>
   <tbody>{% for m in members %}
-  <tr><td>{{ m.get_full_name }}</td><td class="small">{{ m.email }}</td><td>{{ m.get_role_display }}</td>
-    <td>{% if not m.is_active %}<span class="badge s-cancelled">Désactivé</span>{% elif not m.has_usable_password %}<span class="badge s-pending">Invitation en attente</span>{% else %}<span class="badge s-done">Actif</span>{% endif %}</td>
-    <td>{% if m != user %}<form method="post" action="{% url 'agencies:toggle_member' m.pk %}">{% csrf_token %}<button class="btn secondary small">{% if m.is_active %}Désactiver{% else %}Réactiver{% endif %}</button></form>{% endif %}</td></tr>
-  {% endfor %}</tbody></table></section>
-<section class="card"><h2>Ajouter un membre</h2>
-  <form method="post">{% csrf_token %}{% include "includes/form.html" %}<button class="btn" type="submit">Ajouter</button></form>
-</section>
-</div>
+  <tr>
+    <td><div class="cell-main"><span class="avatar">{{ m|initials }}</span><span><span class="t">{{ m.get_full_name|default:m.email }}</span><br><span class="s">{{ m.email }}{% if m.phone %} · {{ m.phone }}{% endif %}</span></span></div></td>
+    <td class="small">{{ m.get_role_display }}</td>
+    <td class="hide-sm">{{ m.assigned_dossiers.count }}</td>
+    <td>{% if not m.is_active %}<span class="badge t-muted">Désactivé</span>{% elif not m.has_usable_password %}<span class="badge t-ochre">Invitation envoyée</span>{% else %}<span class="badge t-ok">Actif</span>{% endif %}</td>
+    <td class="num">{% if m != user %}
+      <details class="dd"><summary class="icon-btn" aria-label="Actions">{% icon "more" %}</summary><div class="dd-menu">
+        {% if not m.has_usable_password %}<a class="dd-item" href="{% url 'agencies:member_invitation' m.pk %}">{% icon "copy" %} Nouveau lien d'activation</a>{% endif %}
+        <form method="post" action="{% url 'agencies:toggle_member' m.pk %}">{% csrf_token %}<button class="dd-item {% if m.is_active %}danger{% endif %}" type="submit">{% if m.is_active %}{% icon "lock" %} Désactiver l'accès{% else %}{% icon "check" %} Réactiver l'accès{% endif %}</button></form>
+      </div></details>{% endif %}</td>
+  </tr>{% endfor %}</tbody>
+</table></div></section>
+<dialog class="modal" id="m-member" {% if form.errors %}data-autoopen{% endif %}>
+  <div class="modal-head"><div><h2>Inviter un membre</h2><p>Il recevra un lien pour choisir son mot de passe.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+  <form class="modal-body" method="post">{% csrf_token %}
+    <div class="form-grid">{% for field in form %}{% include "includes/field.html" %}{% endfor %}</div>
+    <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">Inviter</button></div>
+  </form>
+</dialog>
 {% endblock %}

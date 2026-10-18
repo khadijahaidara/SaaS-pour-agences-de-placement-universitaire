@@ -1,17 +1,15 @@
-{% extends "base.html" %}{% block title %}Activation du compte{% endblock %}
+{% extends "layouts/auth.html" %}{% load ui %}{% block title %}Activation du compte{% endblock %}
 {% block content %}
-<div class="auth-box card">
 {% if validlink %}
-  <h1>Choisissez votre mot de passe</h1>
-  <p class="muted">Bienvenue {{ form.user.first_name }} ! Ce mot de passe vous permettra de suivre votre dossier à tout moment.</p>
+  <h1>Bienvenue{% if form.user.first_name %} {{ form.user.first_name }}{% endif %}</h1>
+  <p class="lead">Choisissez votre mot de passe. Vous pourrez ensuite suivre votre dossier à tout moment, depuis votre téléphone.</p>
   <form method="post">{% csrf_token %}
     {% include "includes/form.html" %}
     <button class="btn block" type="submit">Activer mon compte</button>
   </form>
 {% else %}
-  <h1>Lien expiré</h1>
-  <p class="muted">Ce lien n'est plus valide (déjà utilisé ou trop ancien). Demandez un nouveau lien à votre agence ou utilisez « Mot de passe oublié ».</p>
-  <a class="btn" href="{% url 'accounts:password_reset' %}">Mot de passe oublié</a>
+  <h1>Ce lien n'est plus valide</h1>
+  <p class="lead">Il a déjà été utilisé ou il a expiré (7 jours). Demandez un nouveau lien à votre agence, ou recevez-en un par courriel.</p>
+  <a class="btn" href="{% url 'accounts:password_reset' %}">Recevoir un nouveau lien</a>
 {% endif %}
-</div>
 {% endblock %}

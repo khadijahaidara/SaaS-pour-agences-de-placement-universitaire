@@ -1,0 +1,86 @@
+{% extends "base.html" %}{% load ui humanize %}
+{% block body %}
+<div class="shell">
+  <aside class="sidebar" aria-label="Navigation principale">
+    {% with name=request.resolver_match.url_name ns=request.resolver_match.namespace %}
+    {% if user.role == "platform_admin" %}
+      <a class="brandmark" href="{% url 'console:dashboard' %}"><span class="logo-dot">{% icon "plane" %}</span><span><b>NEURALIS Mobility</b><small>Console plateforme</small></span></a>
+      <nav class="nav-group">
+        <a class="nav-link {% if ns == 'console' and name == 'dashboard' %}active{% endif %}" href="{% url 'console:dashboard' %}">{% icon "dashboard" %} Vue d'ensemble</a>
+        <a class="nav-link {% if ns == 'console' and 'prospect' in name %}active{% endif %}" href="{% url 'console:prospects' %}">{% icon "target" %} Prospects{% if nav_due %}<span class="count" title="Relances dues">{{ nav_due }}</span>{% endif %}</a>
+        <a class="nav-link {% if ns == 'console' and 'agenc' in name %}active{% endif %}" href="{% url 'console:agencies' %}">{% icon "building" %} Agences clientes</a>
+      </nav>
+      <nav class="nav-group">
+        <div class="nav-title">Outils</div>
+        <a class="nav-link" href="{% url 'console:prospect_import' %}">{% icon "upload" %} Importer des prospects</a>
+        <a class="nav-link" href="{% url 'admin:index' %}">{% icon "sliders" %} Administration technique</a>
+      </nav>
+    {% else %}
+      <a class="brandmark" href="{% url 'dossiers:dashboard' %}"><span class="logo-dot">{% icon "plane" %}</span><span><b>NEURALIS Mobility</b><small>Suivi des études à l'étranger</small></span></a>
+      <nav class="nav-group">
+        <a class="nav-link {% if ns == 'dossiers' and name == 'dashboard' %}active{% endif %}" href="{% url 'dossiers:dashboard' %}">{% icon "dashboard" %} Tableau de suivi{% if nav_to_review %}<span class="count" title="Pièces à vérifier">{{ nav_to_review }}</span>{% endif %}</a>
+        <a class="nav-link {% if ns == 'dossiers' and name != 'dashboard' and name != 'notifications' %}active{% endif %}" href="{% url 'dossiers:list' %}">{% icon "folder" %} Dossiers étudiants</a>
+        <a class="nav-link {% if name == 'notifications' %}active{% endif %}" href="{% url 'dossiers:notifications' %}">{% icon "bell" %} Notifications</a>
+      </nav>
+      {% if user.is_agency_admin %}
+      <nav class="nav-group">
+        <div class="nav-title">Mon agence</div>
+        <a class="nav-link {% if ns == 'agencies' and 'workflow' in name %}active{% endif %}" href="{% url 'agencies:workflows' %}">{% icon "route" %} Parcours par destination</a>
+        <a class="nav-link {% if ns == 'agencies' and 'team' in name or name == 'member_invitation' %}active{% endif %}" href="{% url 'agencies:team' %}">{% icon "users" %} Équipe</a>
+        <a class="nav-link {% if ns == 'agencies' and name == 'settings' %}active{% endif %}" href="{% url 'agencies:settings' %}">{% icon "sliders" %} Paramètres et portail</a>
+      </nav>
+      {% endif %}
+      <div class="sidebar-foot">
+        <div class="agency-chip">
+          <span class="avatar sq">{% if user.agency.logo %}<img src="{% url 'agency_logo' user.agency.slug %}" alt="">{% else %}{{ user.agency.initials }}{% endif %}</span>
+          <div class="grow"><div class="small strong">{{ user.agency.name }}</div><div class="tiny" style="color:var(--night-ink)">{{ user.agency.get_plan_display }}</div></div>
+        </div>
+        {% if user.agency.plan == "trial" %}
+          {% if user.agency.is_operational %}<div class="trial-note">Essai gratuit : {{ user.agency.trial_days_left }} jour{{ user.agency.trial_days_left|pluralize }} restant{{ user.agency.trial_days_left|pluralize }}. Pour continuer ensuite, contactez NEURALIS.</div>
+          {% else %}<div class="trial-note expired">Essai terminé. Vos données sont conservées ; contactez NEURALIS pour activer l'abonnement.</div>{% endif %}
+        {% elif not user.agency.is_operational %}<div class="trial-note expired">Abonnement inactif. Contactez NEURALIS.</div>{% endif %}
+      </div>
+    {% endif %}
+    {% endwith %}
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-toggle" type="button" data-sidebar-toggle aria-label="Ouvrir le menu">{% icon "menu" %}</button>
+      {% if user.role == "platform_admin" %}
+      <form class="search" action="{% url 'console:prospects' %}" role="search">{% icon "search" "sm" %}<input type="search" name="q" placeholder="Rechercher un prospect…" aria-label="Rechercher un prospect" value="{{ request.GET.q|default:'' }}"></form>
+      {% else %}
+      <form class="search" action="{% url 'dossiers:list' %}" role="search">{% icon "search" "sm" %}<input type="search" name="q" placeholder="Rechercher un étudiant, une référence…" aria-label="Rechercher un dossier" value="{{ request.GET.q|default:'' }}"></form>
+      {% endif %}
+      <div class="spacer"></div>
+      {% block top_actions %}{% endblock %}
+      <details class="dd">
+        <summary class="icon-btn" aria-label="Notifications">{% icon "bell" %}{% if unread_notifications_count %}<span class="dot">{{ unread_notifications_count }}</span>{% endif %}</summary>
+        <div class="dd-menu notif-menu">
+          <div class="dd-head row between"><strong>Notifications</strong><a class="small" href="{% url 'dossiers:notifications' %}">Tout voir</a></div>
+          {% for n in recent_notifications %}
+            <form method="post" action="{% url 'dossiers:notification_open' n.pk %}">{% csrf_token %}
+              <button class="notif-item dd-item {% if not n.is_read %}unread{% endif %}" type="submit" style="display:block">{{ n.message|truncatechars:110 }}<time>{{ n.created_at|naturaltime }}</time></button>
+            </form>
+          {% empty %}<p class="small muted" style="padding:.6rem .7rem;margin:0">Aucune notification pour l'instant.</p>{% endfor %}
+        </div>
+      </details>
+      <details class="dd">
+        <summary class="row" style="gap:.5rem" aria-label="Mon compte"><span class="avatar">{{ user|initials }}</span>{% icon "chevron-down" "sm" %}</summary>
+        <div class="dd-menu">
+          <div class="dd-head"><div class="strong">{{ user.get_full_name|default:user.email }}</div><div class="tiny muted">{{ user.email }} · {{ user.get_role_display }}</div></div>
+          {% if user.is_agency_admin %}
+          <a class="dd-item" href="{% url 'agencies:settings' %}">{% icon "sliders" %} Paramètres de l'agence</a>
+          <a class="dd-item" href="{% url 'agencies:team' %}">{% icon "users" %} Équipe</a>
+          <div class="dd-sep"></div>
+          {% endif %}
+          <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="dd-item danger" type="submit">{% icon "logout" %} Se déconnecter</button></form>
+        </div>
+      </details>
+    </header>
+    <main class="content" id="contenu">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% endblock %}

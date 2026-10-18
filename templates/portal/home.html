@@ -1,10 +1,13 @@
-{% extends "base.html" %}{% block title %}Mes dossiers{% endblock %}
+{% extends "layouts/portal.html" %}{% load ui %}{% block title %}Mes dossiers{% endblock %}
 {% block content %}
-<h1>Mes dossiers</h1>
+<div class="hello"><h1>Mes dossiers</h1></div>
+<div class="grid cols-2">
 {% for d in dossiers %}
-<a class="card" style="display:block;color:inherit" href="{% url 'portal:dossier' d.pk %}">
-  <strong>{{ d.destination_country }}</strong> — {{ d.program|default:"programme à préciser" }} {% include "includes/badge.html" with value=d.status label=d.get_status_display %}
-  <div class="progress" style="margin-top:.5rem"><div style="width:{{ d.progress_percent }}%"></div></div>
-</a>
-{% empty %}<div class="card"><p class="muted">Aucun dossier pour le moment. Votre agence le créera prochainement.</p></div>{% endfor %}
+<a class="panel" style="display:block;color:inherit;text-decoration:none" href="{% url 'portal:dossier' d.pk %}"><div class="panel-body">
+  <div class="row between"><strong style="font-family:var(--font-display);font-size:1.2rem">BKO {% icon "arrow-right" "sm" %} {{ d.destination_city|default:d.destination_country|place_code }}</strong>{% include "includes/badge.html" with value=d.status label=d.get_status_display %}</div>
+  <p class="small muted" style="margin:.4rem 0 .8rem">{{ d.destination_country }} · {{ d.program|default:"programme à préciser" }}</p>
+  <div class="progress"><span style="width:{{ d.progress_percent }}%;background:var(--brand)"></span></div>
+</div></a>
+{% empty %}<section class="panel"><div class="empty">{% icon "inbox" %}<h3>Aucun dossier pour le moment</h3><p>Votre agence le créera prochainement.</p></div></section>{% endfor %}
+</div>
 {% endblock %}

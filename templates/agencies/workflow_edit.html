@@ -1,25 +1,32 @@
-{% extends "base.html" %}{% block title %}Modèle de parcours{% endblock %}
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Parcours{% endblock %}
 {% block content %}
-<h1>{% if instance.pk %}Modifier « {{ instance.name }} »{% else %}Nouveau modèle de parcours{% endif %}</h1>
-<p class="muted small">Les modifications s'appliquent aux prochains dossiers ; les dossiers existants gardent leur parcours.</p>
+<div class="page-head"><div>
+  <div class="crumbs"><a href="{% url 'agencies:workflows' %}">Parcours</a>{% icon "chevron-right" "sm" %}{% if instance.pk %}{{ instance.name }}{% else %}Nouveau{% endif %}</div>
+  <h1>{% if instance.pk %}{{ instance.name }}{% else %}Nouveau parcours{% endif %}</h1>
+  <p>Les modifications s'appliquent aux prochains dossiers ; les dossiers déjà ouverts gardent leur parcours.</p></div></div>
 <form method="post">{% csrf_token %}
-<section class="card"><div class="form-row">{% include "includes/form.html" %}</div></section>
-<section class="card"><h2>Étapes</h2>
-  {{ stages.management_form }}{% if stages.non_form_errors %}<div class="errors">{{ stages.non_form_errors }}</div>{% endif %}
-  <div class="table-wrap"><table><thead><tr><th style="width:80px">Ordre</th><th>Étape</th><th style="width:110px">Durée (j)</th><th>Consigne pour l'étudiant</th><th>Suppr.</th></tr></thead><tbody>
-  {% for f in stages %}<tr>{{ f.id }}
-    <td>{{ f.order }}{{ f.order.errors }}</td><td>{{ f.name }}{{ f.name.errors }}</td><td>{{ f.default_duration_days }}</td><td>{{ f.student_instructions }}</td><td>{% if f.instance.pk %}{{ f.DELETE }}{% endif %}</td>
-  </tr>{% endfor %}</tbody></table></div>
+<section class="panel"><div class="panel-body"><div class="form-grid">{% include "includes/form.html" %}</div></div></section>
+<section class="panel">
+  <div class="panel-head"><h2>Étapes</h2><span class="small muted">Dans l'ordre où l'étudiant les franchit</span></div>
+  {{ stages.management_form }}{% if stages.non_form_errors %}<div class="alert-box error">{{ stages.non_form_errors }}</div>{% endif %}
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th style="width:90px">Ordre</th><th>Étape</th><th style="width:120px">Durée (jours)</th><th>Consigne pour l'étudiant</th><th style="width:70px">Retirer</th></tr></thead>
+    <tbody>{% for f in stages %}<tr>{{ f.id }}
+      <td>{{ f.order }}{{ f.order.errors }}</td><td>{{ f.name }}{{ f.name.errors }}</td><td>{{ f.default_duration_days }}</td><td>{{ f.student_instructions }}</td><td>{% if f.instance.pk %}<label class="check-row">{{ f.DELETE }}</label>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
 </section>
-<section class="card"><h2>Pièces à demander</h2>
+<section class="panel">
+  <div class="panel-head"><h2>Pièces à demander</h2><span class="small muted">« Étape n° » : la pièce doit être validée avant de terminer cette étape</span></div>
   {{ docs.management_form }}
-  <div class="table-wrap"><table><thead><tr><th>Pièce</th><th>Précision</th><th>Obligatoire</th><th style="width:130px">Pour l'étape n°</th><th>Suppr.</th></tr></thead><tbody>
-  {% for f in docs %}<tr>{{ f.id }}
-    <td>{{ f.name }}{{ f.name.errors }}</td><td>{{ f.description }}</td><td>{{ f.is_required }}</td><td>{{ f.stage_order }}</td><td>{% if f.instance.pk %}{{ f.DELETE }}{% endif %}</td>
-  </tr>{% endfor %}</tbody></table></div>
-  <p class="small muted">Enregistrez pour obtenir des lignes vides supplémentaires.</p>
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th>Pièce</th><th>Précision</th><th style="width:110px">Obligatoire</th><th style="width:120px">Étape n°</th><th style="width:70px">Retirer</th></tr></thead>
+    <tbody>{% for f in docs %}<tr>{{ f.id }}
+      <td>{{ f.name }}{{ f.name.errors }}</td><td>{{ f.description }}</td><td><label class="check-row">{{ f.is_required }}</label></td><td>{{ f.stage_order }}</td><td>{% if f.instance.pk %}<label class="check-row">{{ f.DELETE }}</label>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  <div class="panel-body small muted">Enregistrez pour obtenir des lignes vides supplémentaires.</div>
 </section>
-<button class="btn" type="submit">Enregistrer le modèle</button>
-<a class="btn secondary" href="{% url 'agencies:workflows' %}">Annuler</a>
+<div class="form-actions" style="margin-top:1rem"><a class="btn ghost" href="{% url 'agencies:workflows' %}">Annuler</a><button class="btn" type="submit">Enregistrer le parcours</button></div>
 </form>
 {% endblock %}

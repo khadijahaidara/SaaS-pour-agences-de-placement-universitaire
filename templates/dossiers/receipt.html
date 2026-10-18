@@ -1,18 +1,25 @@
-{% extends "base.html" %}{% load humanize %}{% block title %}Reçu {{ payment.receipt_number }}{% endblock %}
-{% block content %}
-<div class="card" style="max-width:640px;margin:auto">
-  <div class="page-head"><div><h1>Reçu de paiement</h1><p class="muted">{{ dossier.agency.name }} — {{ dossier.agency.city }}, {{ dossier.agency.country }}{% if dossier.agency.phone %} · {{ dossier.agency.phone }}{% endif %}</p></div>
-  <button class="btn secondary no-print" onclick="window.print()">Imprimer</button></div>
-  {% if payment.is_cancelled %}<ul class="messages"><li class="error">REÇU ANNULÉ le {{ payment.cancelled_at|date:"d/m/Y" }} — {{ payment.cancellation_reason }}</li></ul>{% endif %}
-  <table>
-    <tr><th>N° de reçu</th><td>{{ payment.receipt_number }}</td></tr>
-    <tr><th>Date</th><td>{{ payment.paid_on|date:"d/m/Y" }}</td></tr>
-    <tr><th>Étudiant</th><td>{{ dossier.student.get_full_name }} ({{ dossier.reference }})</td></tr>
-    <tr><th>Montant</th><td><strong>{{ payment.amount|floatformat:0|intcomma }} {{ dossier.agency.currency }}</strong></td></tr>
-    <tr><th>Mode</th><td>{{ payment.get_method_display }}{% if payment.reference %} — réf. {{ payment.reference }}{% endif %}</td></tr>
-    <tr><th>Total des frais</th><td>{{ dossier.total_fees|floatformat:0|intcomma }} {{ dossier.agency.currency }}</td></tr>
-    <tr><th>Solde restant à ce jour</th><td>{{ dossier.balance|floatformat:0|intcomma }} {{ dossier.agency.currency }}</td></tr>
-  </table>
-  <p class="disclaimer">Ce reçu concerne uniquement les frais de service de l'agence (accompagnement). Il ne couvre ni les frais de scolarité, ni les frais consulaires, et ne constitue en aucun cas une garantie d'admission ou d'obtention de visa, décisions qui relèvent exclusivement des établissements et des autorités consulaires.</p>
-</div>
+{% extends "base.html" %}{% load ui %}{% block title %}Reçu {{ payment.receipt_number }}{% endblock %}
+{% block body %}
+<main style="max-width:720px;margin:2rem auto;padding:0 16px">
+  <div class="row between no-print" style="margin-bottom:1rem"><a class="btn ghost sm" href="{% url 'home' %}">Retour</a><button class="btn sm" onclick="window.print()">{% icon "download" "sm" %} Imprimer ou enregistrer en PDF</button></div>
+  <article class="panel">
+    <div class="panel-body" style="padding:1.6rem">
+      <div class="row between" style="align-items:flex-start;margin-bottom:1.4rem">
+        <div class="row"><span class="avatar lg sq" style="background:{{ dossier.agency.brand_color }};color:#fff">{% if dossier.agency.logo %}<img src="{% url 'agency_logo' dossier.agency.slug %}" alt="">{% else %}{{ dossier.agency.initials }}{% endif %}</span>
+          <div><div class="strong" style="font-family:var(--font-display);font-size:1.15rem">{{ dossier.agency.name }}</div><div class="small muted">{{ dossier.agency.address|default:dossier.agency.city }}, {{ dossier.agency.country }}{% if dossier.agency.phone %} · {{ dossier.agency.phone }}{% endif %}</div></div></div>
+        <div style="text-align:right"><h1 style="font-size:1.4rem;margin:0">Reçu de paiement</h1><div class="small muted">N° {{ payment.receipt_number }}</div></div>
+      </div>
+      {% if payment.is_cancelled %}<div class="alert-box error">{% icon "alert" %}<div><strong>Reçu annulé</strong> le {{ payment.cancelled_at|date:"d/m/Y" }} — {{ payment.cancellation_reason }}</div></div>{% endif %}
+      <table class="data" style="border:1px solid var(--line);border-radius:12px;overflow:hidden">
+        <tr><th>Date du paiement</th><td>{{ payment.paid_on|date:"d F Y" }}</td></tr>
+        <tr><th>Étudiant</th><td>{{ dossier.student.get_full_name }} — dossier {{ dossier.reference }}</td></tr>
+        <tr><th>Mode</th><td>{{ payment.get_method_display }}{% if payment.reference %} — réf. {{ payment.reference }}{% endif %}</td></tr>
+        <tr><th>Montant reçu</th><td><strong style="font-family:var(--font-display);font-size:1.3rem">{{ payment.amount|money:dossier.agency.currency }}</strong></td></tr>
+        <tr><th>Total des frais de service</th><td>{{ dossier.total_fees|money:dossier.agency.currency }}</td></tr>
+        <tr><th>Solde restant à ce jour</th><td>{{ dossier.balance|money:dossier.agency.currency }}</td></tr>
+      </table>
+      <p class="disclaimer">Ce reçu concerne uniquement les frais de service de l'agence (accompagnement). Il ne couvre ni les frais de scolarité ni les frais consulaires, et ne garantit en aucun cas une admission ou un visa : ces décisions appartiennent aux établissements et aux autorités consulaires.</p>
+    </div>
+  </article>
+</main>
 {% endblock %}

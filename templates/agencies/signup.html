@@ -1,0 +1,30 @@
+{% extends "layouts/auth.html" %}{% load ui %}{% block title %}Créer l'espace de votre agence{% endblock %}
+{% block box_class %}wide{% endblock %}
+{% block pitch %}
+<h1>Votre agence opérationnelle en dix minutes.</h1>
+<p>Quatre parcours prêts à l'emploi (France, Canada, Maroc, Turquie), un portail à vos couleurs pour vos étudiants, et un tableau de suivi qui vous dit quoi traiter en premier.</p>
+<div class="proof">
+  <div><b>{{ trial_days }} jours gratuits</b>sans carte bancaire</div>
+  <div><b>Données protégées</b>passeports et relevés jamais publics</div>
+</div>
+{% endblock %}
+{% block content %}
+<h1>Créer l'espace de votre agence</h1>
+<p class="lead">Essai gratuit de {{ trial_days }} jours. Vous pourrez inviter vos conseillers juste après.</p>
+<form method="post" novalidate>{% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert-box error">{% icon "alert" %}<div>{{ form.non_field_errors|join:" " }}</div></div>{% endif %}
+  <div class="form-grid">
+    {% include "includes/field.html" with field=form.agency_name span=1 %}
+    {% include "includes/field.html" with field=form.city %}
+    {% include "includes/field.html" with field=form.phone %}
+    {% include "includes/field.html" with field=form.first_name %}
+    {% include "includes/field.html" with field=form.last_name %}
+    {% include "includes/field.html" with field=form.email span=1 %}
+    {% include "includes/field.html" with field=form.password span=1 %}
+    {% include "includes/field.html" with field=form.accept_terms span=1 %}
+  </div>
+  <div class="honeypot" aria-hidden="true"><label for="{{ form.website.id_for_label }}">Ne pas remplir</label>{{ form.website }}</div>
+  <button class="btn block" type="submit">Créer mon espace et démarrer l'essai</button>
+</form>
+<p class="auth-switch">Déjà un compte ? <a href="{% url 'accounts:login' %}">Se connecter</a></p>
+{% endblock %}

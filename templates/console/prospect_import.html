@@ -1,0 +1,16 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Importer des prospects{% endblock %}
+{% block content %}
+<div class="page-head"><div><div class="crumbs"><a href="{% url 'console:prospects' %}">Prospects</a>{% icon "chevron-right" "sm" %}Import</div><h1>Importer des prospects</h1>
+<p>Déposez votre fichier de prospection (CSV ou Word avec un tableau). Les prospects déjà présents sont mis à jour sans perdre leur étape ni leurs notes.</p></div></div>
+<div class="grid cols-main">
+<form method="post" enctype="multipart/form-data" class="panel">{% csrf_token %}<div class="panel-body">
+  {% include "includes/form.html" %}
+  <div class="form-actions"><button class="btn" type="submit">{% icon "upload" "sm" %} Importer</button></div>
+</div></form>
+<aside class="panel"><div class="panel-head"><h2>Colonnes reconnues</h2></div><div class="panel-body small">
+  <p class="muted">La première colonne doit s'appeler « Prospect ». Les autres sont facultatives :</p>
+  <p>Zone · Téléphone · E-mail · Segment · Site Web · WhatsApp · Décideur / fonction · Canal recommandé · Source vérification · Priorité Mobility (P1, P2, P3)</p>
+  <p class="muted">Les mentions « Non publié / à vérifier » sont ignorées.</p>
+</div></aside>
+</div>
+{% endblock %}

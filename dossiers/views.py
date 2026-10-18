@@ -28,7 +28,7 @@ from .forms import (
     PaymentForm,
     StatusForm,
 )
-from .models import DocumentFile, DocumentRequest, Dossier, DossierStage, Notification, Payment
+from .models import DocumentFile, DocumentRequest, Dossier, DossierEvent, DossierStage, Notification, Payment, ServiceFee
 from .permissions import agency_staff_required, get_dossier_for
 from .services import BusinessRuleError
 
@@ -47,9 +47,13 @@ def _form_errors(request, form):
 # --------------------------------------------------------------------------- #
 # Tableau de suivi
 # --------------------------------------------------------------------------- #
+DONUT_COLORS = ["#0f766e", "#d9912b", "#3456c4", "#c2412d", "#6b7389", "#2f855a"]
+
+
 @agency_staff_required
 def dashboard(request):
     user = request.user
+    agency = user.agency
     scope = request.GET.get("scope", "all" if user.is_agency_admin else "mine")
     base = Dossier.objects.for_user(user)
     if scope == "mine":
@@ -65,8 +69,9 @@ def dashboard(request):
     priority.sort(key=lambda x: x["score"], reverse=True)
 
     agency_dossiers = Dossier.objects.for_user(user)
-    fees = agency_dossiers.aggregate(s=Sum("fees__amount"))["s"] or Decimal("0")
+    fees = ServiceFee.objects.filter(dossier__in=agency_dossiers).aggregate(s=Sum("amount"))["s"] or Decimal("0")
     paid = Payment.objects.filter(dossier__in=agency_dossiers, cancelled_at__isnull=True).aggregate(s=Sum("amount"))["s"] or Decimal("0")
+    month_start = today.replace(day=1)
     stats = {
         "open": base.open().count(),
         "blocked": base.filter(status=Dossier.Status.BLOCKED).count(),
@@ -76,13 +81,46 @@ def dashboard(request):
         ).count(),
         "completed": base.filter(status=Dossier.Status.COMPLETED).count(),
         "outstanding": fees - paid,
+        "collected_month": Payment.objects.filter(dossier__in=agency_dossiers, cancelled_at__isnull=True,
+                                                  paid_on__gte=month_start).aggregate(s=Sum("amount"))["s"] or 0,
     }
-    by_stage = (
+    by_stage = list(
         DossierStage.objects.filter(dossier__in=base.open(), status=DossierStage.Status.IN_PROGRESS)
-        .values("name").annotate(n=Count("id")).order_by("-n")[:8]
+        .values("name").annotate(n=Count("id")).order_by("-n")[:7]
     )
+    max_stage = max([s["n"] for s in by_stage] + [1])
+    for s in by_stage:
+        s["pct"] = round(s["n"] * 100 / max_stage)
+
+    dest_rows = list(base.open().values("destination_country").annotate(n=Count("id")).order_by("-n"))
+    top, rest = dest_rows[:5], sum(r["n"] for r in dest_rows[5:])
+    if rest:
+        top.append({"destination_country": "Autres", "n": rest})
+    total = sum(r["n"] for r in top) or 1
+    acc, stops = 0, []
+    for i, r in enumerate(top):
+        r["color"] = DONUT_COLORS[i % len(DONUT_COLORS)]
+        start = acc * 360 / total
+        acc += r["n"]
+        stops.append(f"{r['color']} {start:.1f}deg {acc * 360 / total:.1f}deg")
+    donut = "conic-gradient(" + ", ".join(stops) + ")" if stops else "conic-gradient(var(--line) 0 360deg)"
+
+    onboarding = None
+    if user.is_agency_admin:
+        steps = [
+            {"label": "Ajouter votre logo et votre couleur", "done": bool(agency.logo), "url": reverse("agencies:settings")},
+            {"label": "Inviter un conseiller", "done": agency.users.filter(role=user.Role.COUNSELOR).exists(), "url": reverse("agencies:team")},
+            {"label": "Vérifier vos parcours", "done": agency.workflow_templates.filter(stages__isnull=False).count() > 0 and agency.dossiers.exists(), "url": reverse("agencies:workflows")},
+            {"label": "Créer votre premier dossier", "done": agency.dossiers.exists(), "url": reverse("dossiers:create")},
+        ]
+        if not all(s["done"] for s in steps):
+            onboarding = steps
+
+    recent_events = DossierEvent.objects.filter(dossier__in=base).select_related("dossier__student", "actor")[:8]
     return render(request, "dossiers/dashboard.html", {
-        "priority": priority[:30], "stats": stats, "by_stage": by_stage, "scope": scope,
+        "priority": priority[:25], "stats": stats, "by_stage": by_stage, "scope": scope,
+        "destinations": top, "donut": donut, "dest_total": sum(r["n"] for r in top),
+        "onboarding": onboarding, "recent_events": recent_events,
     })
 
 
@@ -115,6 +153,10 @@ def dossier_list(request):
 @agency_staff_required
 def dossier_create(request):
     agency = request.user.agency
+    if not agency.is_operational:
+        messages.error(request, "Votre période d'essai est terminée : vos dossiers restent consultables, "
+                                "mais la création de nouveaux dossiers nécessite un abonnement actif.")
+        return redirect("dossiers:list")
     form = DossierCreateForm(request.POST or None, agency=agency,
                              initial={"counselor": request.user if not request.user.is_agency_admin else None})
     if request.method == "POST" and form.is_valid():

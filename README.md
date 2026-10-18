@@ -1,10 +1,18 @@
-# Neuralis Placement — SaaS pour agences de placement universitaire
+# NEURALIS Mobility — SaaS pour agences de placement universitaire
 
 Application web (Django + PostgreSQL) qui permet à une agence d'accompagnement aux études à l'étranger de
 suivre chaque étudiant **de la création du dossier jusqu'à l'accueil** dans le pays de destination, et à
 l'étudiant de voir à tout moment **où en est son dossier, ce qui manque et ce qu'il doit faire ensuite**.
 
-> Produit du programme NEURALIS (cadrage du 14/09/2026). Le nom commercial reste à valider après l'étude de marché.
+> Produit du programme NEURALIS (cadrage du 14/09/2026).
+
+Trois espaces dans une même application :
+
+- **Espace agence** (responsables et conseillers) : tableau de suivi priorisé, dossiers, pièces, étapes, paiements, équipe, parcours par destination, logo et couleur du portail.
+- **Portail étudiant** aux couleurs de l'agence : « carte d'embarquement » Bamako → destination avec l'avancement, la prochaine action, le dépôt des pièces depuis le téléphone, les paiements et reçus.
+- **Console NEURALIS** (équipe plateforme) : CRM de prospection des agences (import du fichier de 200 prospects, priorités P1/P2/P3, étapes commerciales, relances, WhatsApp en un clic), conversion d'un prospect en agence cliente, gestion des essais et abonnements.
+
+Les agences peuvent aussi **créer leur espace seules** (`/inscription/`) : essai gratuit de 14 jours, parcours par défaut installés, prospect correspondant rattaché automatiquement dans le CRM.
 
 ## Ce que fait le MVP
 
@@ -67,6 +75,7 @@ Ouvrir http://127.0.0.1:8000 — mot de passe de tous les comptes de démonstrat
 | admin@demo.ml | Responsable d'agence |
 | conseiller@demo.ml / conseillere@demo.ml | Conseillers |
 | etudiant@demo.ml | Étudiante (pièces à déposer — idéal pour la démo du parcours) |
+| console@demo.ml | Équipe NEURALIS : console CRM + agences |
 | ibrahim@demo.ml, aminata@demo.ml, oumar@demo.ml, mariam@demo.ml | Autres étudiants à différents stades |
 
 ### Avec PostgreSQL / Docker
@@ -79,6 +88,16 @@ docker compose exec web python manage.py seed_demo
 
 Sans Docker, définir `DATABASE_URL=postgres://utilisateur:motdepasse@hote:5432/base`.
 
+### Importer le fichier de prospection
+
+Dans la console : **Importer des prospects** et déposer le fichier Word (tableau) ou CSV. En ligne de commande :
+
+```bash
+python manage.py import_prospects "NEURALIS_Mobility_200_Agences.docx"
+```
+
+Le fichier de prospects n'est **pas** versionné dans le dépôt (données de contact) : importez-le sur chaque environnement.
+
 ### Ouvrir une agence cliente
 
 ```bash
@@ -86,7 +105,9 @@ python manage.py create_agency --name "Agence Horizon" --admin-email responsable
     --admin-first-name Awa --admin-last-name Traoré --base-url https://placement.neuralis-mali.com
 ```
 
-La commande crée l'agence, son responsable, les 4 modèles de parcours par défaut et affiche le lien d'activation.
+La commande crée l'agence en essai, son responsable, les 4 parcours par défaut et affiche le lien d'activation. Depuis la console, le bouton « Créer son espace agence » d'une fiche prospect fait la même chose.
+
+Pour créer un compte d'équipe NEURALIS : `python manage.py createsuperuser`.
 
 ## Tests
 
@@ -94,8 +115,8 @@ La commande crée l'agence, son responsable, les 4 modèles de parcours par déf
 python manage.py test
 ```
 
-25 tests couvrent le parcours prioritaire (services et HTTP), l'isolation entre agences, conseillers et étudiants,
-la protection des fichiers, la validation des dépôts, les règles de paiement, les alertes et l'activation des comptes.
+37 tests couvrent le parcours prioritaire (services et HTTP), l'isolation entre agences, conseillers et étudiants,
+la protection des fichiers, la validation des dépôts, les règles de paiement, les alertes, l'activation des comptes, l'inscription libre (anti-abus, essai), le blocage à expiration, l'import de prospects, le pipeline commercial et la conversion en agence.
 La CI GitHub (`.github/workflows/tests.yml`) les exécute sur PostgreSQL à chaque push.
 
 ## Structure
@@ -103,13 +124,14 @@ La CI GitHub (`.github/workflows/tests.yml`) les exécute sur PostgreSQL à chaq
 ```
 config/        paramètres (variables d'environnement), URLs
 accounts/      utilisateur par courriel + rôles, connexion, activation par lien
-agencies/      agence (locataire), équipe, éditeur de modèles de parcours
+agencies/      agence (locataire), inscription libre, essai/abonnement, marque du portail, équipe, parcours
+console/       console NEURALIS : CRM prospects, import CSV/Word, agences clientes
 dossiers/      cœur métier : modèles, services (règles), espace agence, permissions, tests
   services.py  toutes les actions métier (transaction + journal + notification)
   defaults.py  modèles de parcours par défaut (hypothèses à valider en entretien)
 portal/        portail étudiant
-templates/     interface (HTML, français, mobile d'abord)
-static/css/    feuille de style unique, sans dépendance externe
+templates/     interface (HTML, français, mobile d'abord) — layouts app / auth / portail
+static/        CSS, JS (listes déroulantes avec recherche, menus, fenêtres modales) et polices auto-hébergées, sans CDN
 docs/          notes fonctionnelles et suite du produit
 ```
 

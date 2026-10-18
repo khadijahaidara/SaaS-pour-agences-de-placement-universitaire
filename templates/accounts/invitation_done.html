@@ -1,2 +1,2 @@
-{% extends "base.html" %}{% block title %}Compte activé{% endblock %}
-{% block content %}<div class="auth-box card"><h1>Compte activé</h1><p class="muted">Votre mot de passe est enregistré.</p><a class="btn" href="{% url 'home' %}">Accéder à mon espace</a></div>{% endblock %}
+{% extends "layouts/auth.html" %}{% block title %}Compte activé{% endblock %}
+{% block content %}<h1>Compte activé</h1><p class="lead">Votre mot de passe est enregistré.</p><a class="btn block" href="{% url 'home' %}">Ouvrir mon espace</a>{% endblock %}

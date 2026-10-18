@@ -1,0 +1,21 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Agences clientes{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Agences clientes</h1><p>Essais, abonnements et activité de chaque espace agence.</p></div></div>
+<section class="panel"><div class="table-wrap"><table class="data">
+  <thead><tr><th>Agence</th><th>Formule</th><th class="hide-sm">Échéance</th><th class="num hide-sm">Équipe</th><th class="num hide-sm">Dossiers</th><th class="hide-sm">Origine</th><th></th></tr></thead>
+  <tbody>{% for a in agencies %}
+  <tr>
+    <td><div class="cell-main"><span class="avatar sq" style="background:{{ a.brand_color }};color:#fff">{% if a.logo %}<img src="{% url 'agency_logo' a.slug %}" alt="">{% else %}{{ a.initials }}{% endif %}</span><span><span class="t">{{ a.name }}</span><br><span class="s">{{ a.city }}{% if a.email %} · {{ a.email }}{% endif %}</span></span></div></td>
+    <td><span class="badge s-{{ a.plan }}">{{ a.get_plan_display }}</span>{% if not a.is_operational and a.plan != "suspended" %}<br><span class="tiny" style="color:var(--danger)">expiré</span>{% endif %}</td>
+    <td class="hide-sm small">{% if a.plan == "trial" and a.trial_ends_at %}fin d'essai {{ a.trial_ends_at|date:"d/m/Y" }}{% elif a.paid_until %}payé jusqu'au {{ a.paid_until|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+    <td class="num hide-sm">{{ a.n_users }}</td>
+    <td class="num hide-sm">{{ a.n_dossiers }}</td>
+    <td class="hide-sm small muted">{% if a.signup_source == "self_signup" %}Inscription en ligne{% elif a.signup_source == "console" %}Console{% else %}{{ a.signup_source|default:"—" }}{% endif %}</td>
+    <td class="num"><details class="dd"><summary class="btn ghost sm">Formule {% icon "chevron-down" "sm" %}</summary><div class="dd-menu">
+      {% for value, label in plan_actions %}<form method="post" action="{% url 'console:agency_plan' a.pk %}">{% csrf_token %}<input type="hidden" name="action" value="{{ value }}"><button class="dd-item {% if value == 'suspend' %}danger{% endif %}" type="submit">{{ label }}</button></form>{% endfor %}
+      {% if a.prospect %}<div class="dd-sep"></div><a class="dd-item" href="{% url 'console:prospect_detail' a.prospect.pk %}">{% icon "target" %} Fiche prospect</a>{% endif %}
+    </div></details></td>
+  </tr>
+  {% empty %}<tr><td colspan="7"><div class="empty">{% icon "building" %}<h3>Aucune agence cliente</h3><p>Les agences inscrites en ligne ou créées depuis un prospect apparaîtront ici.</p></div></td></tr>{% endfor %}</tbody>
+</table></div></section>
+{% endblock %}

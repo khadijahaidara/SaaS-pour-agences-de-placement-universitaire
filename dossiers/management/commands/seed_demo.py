@@ -35,15 +35,31 @@ class Command(BaseCommand):
         if Agency.objects.filter(slug="agence-demo-bamako").exists():
             self.stdout.write("Les données de démonstration existent déjà.")
             return
-        agency = Agency.objects.create(name="Agence Démo Bamako", slug="agence-demo-bamako",
-                                       phone="+223 20 00 00 00", email="contact@demo.ml")
-        install_default_workflows(agency)
+        from agencies.services import create_agency
+        from console.models import Prospect
+
+        agency, admin = create_agency(
+            name="Agence Démo Bamako", admin_email="admin@demo.ml", admin_password=PASSWORD,
+            admin_first_name="Khadija", admin_last_name="Traoré", phone="+223 20 00 00 00", source="demo",
+        )
+        agency.slug = "agence-demo-bamako"
+        agency.address = "ACI 2000, Bamako"
+        agency.welcome_message = "Bienvenue ! Suivez ici chaque étape de votre départ. Votre conseiller reste joignable sur WhatsApp."
+        agency.save()
 
         def mk(email, first, last, role, phone=""):
             return User.objects.create_user(email=email, password=PASSWORD, first_name=first, last_name=last,
                                             role=role, agency=agency, phone=phone)
 
-        admin = mk("admin@demo.ml", "Khadija", "Traoré", User.Role.AGENCY_ADMIN)
+        if not User.objects.filter(email="console@demo.ml").exists():
+            User.objects.create_superuser(email="console@demo.ml", password=PASSWORD, first_name="Équipe",
+                                          last_name="NEURALIS")
+        if not Prospect.objects.exists():
+            for name, prio, status in [("Agence Exemple Horizon", "P1", "new"), ("Études Exemple Sahel", "P1", "contacted"),
+                                       ("Centre Exemple Formation", "P2", "demo_scheduled"), ("Cabinet Exemple Conseil", "P3", "new")]:
+                Prospect.objects.create(name=name, priority=prio, status=status, zone="Bamako", phone="70 00 00 00",
+                                        next_follow_up=timezone.localdate())
+
         c1 = mk("conseiller@demo.ml", "Moussa", "Diarra", User.Role.COUNSELOR, "+223 70 00 00 01")
         c2 = mk("conseillere@demo.ml", "Awa", "Coulibaly", User.Role.COUNSELOR, "+223 70 00 00 02")
 
@@ -104,3 +120,4 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Démo créée. Comptes (mot de passe : demo12345) :"))
         for u in User.objects.filter(agency=agency).order_by("role", "email"):
             self.stdout.write(f"  {u.get_role_display():<22} {u.email}")
+        self.stdout.write(f"  {'Console NEURALIS':<22} console@demo.ml")

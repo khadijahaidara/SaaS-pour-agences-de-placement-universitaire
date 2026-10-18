@@ -1,0 +1,9 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}{% if prospect %}Modifier {{ prospect.name }}{% else %}Nouveau prospect{% endif %}{% endblock %}
+{% block content %}
+<div class="page-head"><div><div class="crumbs"><a href="{% url 'console:prospects' %}">Prospects</a>{% icon "chevron-right" "sm" %}{% if prospect %}{{ prospect.name }}{% else %}Nouveau{% endif %}</div>
+<h1>{% if prospect %}Modifier la fiche{% else %}Nouveau prospect{% endif %}</h1></div></div>
+<form method="post" class="panel" style="max-width:900px">{% csrf_token %}<div class="panel-body">
+  <div class="form-grid">{% for field in form %}{% if field.name == "notes" or field.name == "source" or field.name == "name" %}{% include "includes/field.html" with span=1 %}{% else %}{% include "includes/field.html" %}{% endif %}{% endfor %}</div>
+  <div class="form-actions"><a class="btn ghost" href="{% if prospect %}{% url 'console:prospect_detail' prospect.pk %}{% else %}{% url 'console:prospects' %}{% endif %}">Annuler</a><button class="btn" type="submit">Enregistrer</button></div>
+</div></form>
+{% endblock %}

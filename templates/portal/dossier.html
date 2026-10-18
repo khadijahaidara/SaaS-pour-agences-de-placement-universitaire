@@ -1,77 +1,119 @@
-{% extends "base.html" %}{% load humanize %}{% block title %}Mon dossier{% endblock %}
+{% extends "layouts/portal.html" %}{% load ui %}{% block title %}Mon dossier{% endblock %}
 {% block content %}
-<div class="page-head"><div>
-  <h1>Bonjour {{ user.first_name|default:"" }} 👋</h1>
-  <p class="muted">Dossier {{ dossier.reference }} · {{ dossier.destination_country }}{% if dossier.program %} · {{ dossier.program }}{% endif %}{% if dossier.institution %} — {{ dossier.institution }}{% endif %}</p>
-</div>{% include "includes/badge.html" with value=dossier.status label=dossier.get_status_display %}</div>
-
-<div class="next-action {{ next_action.kind }}">
-  <div class="small muted">Votre prochaine action</div>
-  <div class="label">{{ next_action.label }}</div>
-  {% if next_action.kind == "document" %}<a class="btn small" style="margin-top:.5rem" href="#doc-{{ next_action.target.pk }}">Déposer maintenant</a>{% endif %}
+{% with cur=dossier.agency.currency dest=dossier.destination_city|default:dossier.destination_country %}
+<div class="hello">
+  <h1>Bonjour {{ user.first_name|default:"" }}</h1>
+  <p class="muted">{{ dossier.agency.welcome_message|default:"Voici où en est votre projet d'études. Tout ce que vous avez à faire est indiqué ci-dessous." }}</p>
 </div>
 
-<div class="grid grid-2">
-<div>
-  <section class="card">
-    <div class="page-head" style="margin-bottom:.5rem"><h2>Avancement</h2><span class="small muted">{{ dossier.progress_percent }} %</span></div>
-    <div class="progress" style="margin-bottom:.75rem"><div style="width:{{ dossier.progress_percent }}%"></div></div>
-    <ol class="steps">
-      {% for s in stages %}
-      <li class="{{ s.status }}">
-        <span class="dot">{% if s.status == 'done' %}✓{% else %}{{ forloop.counter }}{% endif %}</span>
-        <div><strong>{{ s.name }}</strong>
-          <div class="meta">{% if s.status == 'done' %}Terminée le {{ s.completed_at|date:"d/m/Y" }}{% elif s.status == 'in_progress' %}En cours{% if s.due_date %} — échéance prévue le {{ s.due_date|date:"d/m/Y" }}{% endif %}{% else %}{{ s.get_status_display }}{% endif %}</div>
-          {% if s.status == 'in_progress' and s.student_instructions %}<div class="small">{{ s.student_instructions|linebreaksbr }}</div>{% endif %}
-        </div>
-      </li>
-      {% endfor %}
-    </ol>
-  </section>
-
-  <section class="card">
-    <h2>Mes documents</h2>
-    <p class="small muted">Formats acceptés : PDF, JPG, PNG — 10 Mo maximum. Une photo nette et bien éclairée suffit.</p>
-    {% for doc in documents %}
-    <div class="doc" id="doc-{{ doc.pk }}">
-      <div class="doc-head"><div><strong>{{ doc.name }}</strong>{% if not doc.is_required %} <span class="small muted">(facultatif)</span>{% endif %}
-        {% if doc.description %}<div class="small muted">{{ doc.description }}</div>{% endif %}
-        {% if doc.due_date and doc.status != 'approved' %}<div class="small {% if doc.is_overdue %}reason{% else %}muted{% endif %}">À fournir avant le {{ doc.due_date|date:"d/m/Y" }}</div>{% endif %}</div>
-        {% include "includes/badge.html" with value=doc.status label=doc.get_status_display %}</div>
-      {% if doc.status == 'rejected' %}<div class="reason">À corriger : {{ doc.rejection_reason }}</div>{% endif %}
-      {% with f=doc.latest_file %}{% if f %}<div class="small">Dernier envoi : <a href="{% url 'dossiers:document_download' f.pk %}" target="_blank" rel="noopener">{{ f.original_name|truncatechars:30 }}</a> ({{ f.uploaded_at|date:"d/m/Y" }})</div>{% endif %}{% endwith %}
-      {% if is_open and doc.status != 'approved' %}
-      <form method="post" enctype="multipart/form-data" action="{% url 'portal:upload' dossier.pk doc.pk %}" class="inline-form" style="margin-top:.5rem">{% csrf_token %}
-        <input class="input" type="file" name="file" accept=".pdf,.jpg,.jpeg,.png" required>
-        <button class="btn small" type="submit">{% if doc.status == 'submitted' %}Remplacer{% else %}Envoyer{% endif %}</button>
-      </form>
-      {% endif %}
+<article class="pass" aria-label="Avancement de votre dossier">
+  <div class="pass-main">
+    <div class="pass-band"><span class="row" style="gap:.4rem">{% icon "plane" %} Dossier {{ dossier.reference }}</span><span>{{ dossier.get_status_display }}</span></div>
+    <div class="pass-route">
+      <div class="pass-city"><div class="code">BKO</div><div class="name">Bamako</div></div>
+      <div class="pass-track" aria-hidden="true">
+        <span class="done-line" style="width:{{ dossier.progress_percent }}%"></span>
+        <span class="plane" style="left:{% if dossier.progress_percent < 6 %}6{% elif dossier.progress_percent > 94 %}94{% else %}{{ dossier.progress_percent }}{% endif %}%">{% icon "plane" %}</span>
+      </div>
+      <div class="pass-city to"><div class="code">{{ dest|place_code }}</div><div class="name">{{ dest }}</div></div>
     </div>
-    {% empty %}<p class="muted">Aucun document demandé pour le moment.</p>{% endfor %}
+    <div class="pass-fields">
+      <div><div class="k">Passager</div><div class="v">{{ user.get_full_name }}</div></div>
+      <div><div class="k">Programme</div><div class="v" title="{{ dossier.program }}">{{ dossier.program|default:"À préciser" }}</div></div>
+      <div><div class="k">Établissement</div><div class="v" title="{{ dossier.institution }}">{{ dossier.institution|default:"À préciser" }}</div></div>
+      <div><div class="k">Rentrée</div><div class="v">{{ dossier.intake|default:"À préciser" }}</div></div>
+    </div>
+  </div>
+  <div class="pass-stub">
+    <div><div class="k">Avancement</div><div class="pct">{{ dossier.progress_percent }}%</div></div>
+    <div><div class="k">Étape en cours</div><div class="v">{{ current_stage.name|default:"—" }}</div></div>
+    {% if current_stage.due_date %}<div><div class="k">Échéance prévue</div><div class="v">{{ current_stage.due_date|date:"d M Y" }}</div></div>{% endif %}
+    <div class="barcode" aria-hidden="true"></div>
+  </div>
+</article>
+
+<div class="next-step {% if next_action.kind == 'done' %}done{% elif next_action.kind == 'wait' or next_action.kind == 'closed' %}calm{% endif %}">
+  <span class="ic-wrap">{% if next_action.kind == "document" %}{% icon "upload" "lg" %}{% elif next_action.kind == "payment" %}{% icon "wallet" "lg" %}{% elif next_action.kind == "done" %}{% icon "check" "lg" %}{% else %}{% icon "clock" "lg" %}{% endif %}</span>
+  <div><div class="k">Votre prochaine action</div><div class="v">{{ next_action.label }}</div></div>
+  {% if next_action.kind == "document" %}<a class="btn ochre" href="#doc-{{ next_action.target.pk }}">Déposer maintenant</a>{% endif %}
+</div>
+
+<div class="portal-cols">
+<div class="stack">
+  <section class="panel">
+    <div class="panel-head"><h2>Mes documents</h2><span class="tiny muted">PDF, JPG ou PNG · 10 Mo max</span></div>
+    <div class="panel-body flush">
+    {% for doc in documents %}
+      <div class="doc st-{{ doc.status }}" id="doc-{{ doc.pk }}">
+        <span class="doc-ic">{% if doc.status == "approved" %}{% icon "file-check" %}{% else %}{% icon "file" %}{% endif %}</span>
+        <div>
+          <div class="name">{{ doc.name }}{% if not doc.is_required %} <span class="tiny muted">facultatif</span>{% endif %}</div>
+          {% if doc.description %}<div class="small muted">{{ doc.description }}</div>{% endif %}
+          {% if doc.due_date and doc.status != 'approved' %}<div class="small {% if doc.is_overdue %}strong{% else %}muted{% endif %}" {% if doc.is_overdue %}style="color:var(--danger)"{% endif %}>À fournir avant le {{ doc.due_date|date:"d/m/Y" }}</div>{% endif %}
+          {% if doc.status == 'rejected' %}<div class="reason">À corriger : {{ doc.rejection_reason }}</div>{% endif %}
+          {% with f=doc.latest_file %}{% if f %}<div class="files"><a href="{% url 'dossiers:document_download' f.pk %}" target="_blank" rel="noopener">{% icon "file" "sm" %} {{ f.original_name|truncatechars:28 }}</a><span class="muted">envoyé le {{ f.uploaded_at|date:"d/m/Y" }}</span></div>{% endif %}{% endwith %}
+          {% if is_open and doc.status != 'approved' %}
+          <form method="post" enctype="multipart/form-data" action="{% url 'portal:upload' dossier.pk doc.pk %}" class="row" style="margin-top:.6rem">{% csrf_token %}
+            <label class="dropzone grow" style="padding:.55rem .8rem"><input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png" required>{% icon "upload" %}<span class="fname small" data-empty="Choisir un fichier ou prendre une photo">Choisir un fichier ou prendre une photo</span></label>
+            <button class="btn sm" type="submit" style="background:var(--brand)">{% if doc.status == 'submitted' %}Remplacer{% else %}Envoyer{% endif %}</button>
+          </form>
+          {% endif %}
+        </div>
+        <div class="doc-actions">{% include "includes/badge.html" with value=doc.status label=doc.get_status_display %}</div>
+      </div>
+    {% empty %}<div class="empty">{% icon "file" %}<h3>Aucun document demandé</h3><p>Votre conseiller vous indiquera ici les pièces à fournir.</p></div>{% endfor %}
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Mon parcours</h2></div>
+    <div class="panel-body">
+      <ol class="journey">
+        {% for s in stages %}
+        <li class="{{ s.status }}">
+          <span class="node">{% if s.status == 'done' %}{% icon "check" "sm" %}{% else %}{{ forloop.counter }}{% endif %}</span>
+          <div>
+            <div class="title">{{ s.name }}</div>
+            <div class="meta">{% if s.status == 'done' %}Terminée le {{ s.completed_at|date:"d/m/Y" }}{% elif s.status == 'in_progress' %}En cours{% if s.due_date %} · prévue jusqu'au {{ s.due_date|date:"d/m/Y" }}{% endif %}{% else %}À venir{% endif %}</div>
+            {% if s.status == 'in_progress' and s.student_instructions %}<div class="hint">{{ s.student_instructions|linebreaksbr }}</div>{% endif %}
+          </div>
+        </li>
+        {% endfor %}
+      </ol>
+    </div>
   </section>
 </div>
 
-<aside>
-  <section class="card">
-    <h2>Mes paiements</h2>
-    <table>
-      <tr><td>Frais de service</td><td class="num">{{ dossier.total_fees|floatformat:0|intcomma }} {{ dossier.agency.currency }}</td></tr>
-      <tr><td>Déjà payé</td><td class="num">{{ dossier.total_paid|floatformat:0|intcomma }} {{ dossier.agency.currency }}</td></tr>
-      <tr><td><strong>Reste à payer</strong></td><td class="num"><strong>{{ dossier.balance|floatformat:0|intcomma }} {{ dossier.agency.currency }}</strong></td></tr>
-    </table>
-    {% if payments %}<h3 style="margin-top:.75rem">Reçus</h3><ul class="timeline">{% for p in payments %}<li><a href="{% url 'dossiers:receipt' p.pk %}" target="_blank">{{ p.receipt_number }}</a> — {{ p.amount|floatformat:0|intcomma }} {{ dossier.agency.currency }} <span class="small muted">({{ p.paid_on|date:"d/m/Y" }})</span></li>{% endfor %}</ul>{% endif %}
+<aside class="stack">
+  <section class="panel">
+    <div class="panel-head"><h2>Mes paiements</h2></div>
+    <div class="panel-body money">
+      <div class="line"><span class="muted">Frais de service</span><span>{{ dossier.total_fees|money:cur }}</span></div>
+      <div class="line"><span class="muted">Déjà payé</span><span>{{ dossier.total_paid|money:cur }}</span></div>
+      <hr style="margin:.3rem 0">
+      <div class="line"><span class="strong">Reste à payer</span><span class="total">{{ dossier.balance|money:cur }}</span></div>
+      {% if payments %}<div class="tiny muted" style="margin-top:.6rem">Reçus</div>
+        {% for p in payments %}<a class="row small" href="{% url 'dossiers:receipt' p.pk %}" target="_blank">{% icon "receipt" "sm" %} {{ p.receipt_number }} · {{ p.amount|money:cur }}</a>{% endfor %}{% endif %}
+    </div>
   </section>
-  <section class="card">
-    <h2>Mon conseiller</h2>
-    {% if dossier.counselor %}<p>{{ dossier.counselor.get_full_name }}<br><span class="small muted">{{ dossier.counselor.email }}{% if dossier.counselor.phone %} · {{ dossier.counselor.phone }}{% endif %}</span></p>
-    {% else %}<p class="muted small">Un conseiller vous sera bientôt attribué.</p>{% endif %}
-    <p class="small muted">{{ dossier.agency.name }}{% if dossier.agency.phone %} · {{ dossier.agency.phone }}{% endif %}</p>
+  <section class="panel">
+    <div class="panel-head"><h2>Mon conseiller</h2></div>
+    <div class="panel-body small">
+      {% if dossier.counselor %}
+      <div class="row"><span class="avatar">{{ dossier.counselor|initials }}</span><div><div class="strong">{{ dossier.counselor.get_full_name }}</div><div class="muted">{{ dossier.agency.name }}</div></div></div>
+      <div class="row" style="margin-top:.8rem">
+        {% if dossier.counselor.phone %}<a class="btn ghost sm" href="tel:{{ dossier.counselor.phone }}">{% icon "phone" "sm" %} Appeler</a>{% endif %}
+        <a class="btn ghost sm" href="mailto:{{ dossier.counselor.email }}">{% icon "mail" "sm" %} Écrire</a>
+      </div>
+      {% else %}<p class="muted">Un conseiller vous sera bientôt attribué.</p>{% endif %}
+    </div>
   </section>
-  <section class="card">
-    <h2>Dernières nouvelles</h2>
-    <ul class="timeline">{% for e in events %}<li>{{ e.message }}<br><span class="small muted">{{ e.created_at|date:"d/m/Y H:i" }}</span></li>{% empty %}<li class="muted">—</li>{% endfor %}</ul>
+  <section class="panel">
+    <div class="panel-head"><h2>Dernières nouvelles</h2></div>
+    <div class="panel-body"><ul class="feed">{% for e in events %}<li><span class="dot">{% icon "bell" %}</span><div>{{ e.message }}<time>{{ e.created_at|date:"d/m/Y H:i" }}</time></div></li>{% empty %}<li class="muted small" style="display:block">—</li>{% endfor %}</ul></div>
   </section>
 </aside>
 </div>
-<p class="disclaimer">L'agence vous accompagne dans vos démarches. Les décisions d'admission et de visa appartiennent exclusivement aux établissements et aux autorités consulaires : aucun résultat ne peut être garanti.</p>
+<p class="disclaimer">{{ dossier.agency.name }} vous accompagne dans vos démarches. Les décisions d'admission et de visa appartiennent exclusivement aux établissements et aux autorités consulaires : aucun résultat ne peut être garanti.</p>
+{% endwith %}
 {% endblock %}

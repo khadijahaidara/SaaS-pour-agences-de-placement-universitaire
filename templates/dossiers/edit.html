@@ -1,9 +1,13 @@
-{% extends "base.html" %}{% block title %}Modifier {{ dossier.reference }}{% endblock %}
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Modifier {{ dossier.reference }}{% endblock %}
 {% block content %}
-<h1>Modifier le dossier {{ dossier.reference }}</h1>
-<form method="post" class="card">{% csrf_token %}
-  <div class="form-row">{% for field in form %}{% include "includes/field.html" %}{% endfor %}</div>
-  <button class="btn" type="submit">Enregistrer</button>
-  <a class="btn secondary" href="{% url 'dossiers:detail' dossier.pk %}">Annuler</a>
+<div class="page-head"><div>
+  <div class="crumbs"><a href="{% url 'dossiers:list' %}">Dossiers</a>{% icon "chevron-right" "sm" %}<a href="{% url 'dossiers:detail' dossier.pk %}">{{ dossier.student.get_full_name }}</a>{% icon "chevron-right" "sm" %}Modifier</div>
+  <h1>Informations du dossier</h1>
+</div></div>
+<form method="post" class="panel" style="max-width:880px">{% csrf_token %}
+  <div class="panel-body">
+    <div class="form-grid">{% for field in form %}{% if field.name == "internal_notes" %}{% include "includes/field.html" with span=1 %}{% else %}{% include "includes/field.html" %}{% endif %}{% endfor %}</div>
+    <div class="form-actions"><a class="btn ghost" href="{% url 'dossiers:detail' dossier.pk %}">Annuler</a><button class="btn" type="submit">Enregistrer</button></div>
+  </div>
 </form>
 {% endblock %}
