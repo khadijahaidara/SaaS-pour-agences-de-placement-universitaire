@@ -34,7 +34,7 @@
   <div class="stat {% if stats.overdue %}tone-alert{% endif %}"><span class="ic-wrap">{% icon "clock" %}</span><div><div class="v">{{ stats.overdue }}</div><div class="l">Étapes en retard</div></div></div>
   <div class="stat {% if stats.blocked %}tone-alert{% endif %}"><span class="ic-wrap">{% icon "alert" %}</span><div><div class="v">{{ stats.blocked }}</div><div class="l">Dossiers bloqués</div></div></div>
   <div class="stat tone-ok"><span class="ic-wrap">{% icon "plane" %}</span><div><div class="v">{{ stats.completed }}</div><div class="l">Étudiants arrivés</div></div></div>
-  <div class="stat"><span class="ic-wrap">{% icon "wallet" %}</span><div><div class="v" style="font-size:1.2rem">{{ stats.outstanding|money }}</div><div class="l">Reste à encaisser ({{ user.agency.currency }})</div></div></div>
+  <div class="stat"><span class="ic-wrap">{% icon "cowrie" %}</span><div><div class="v" style="font-size:1.2rem">{{ stats.outstanding|money }}</div><div class="l">Reste à encaisser ({{ user.agency.currency }})</div></div></div>
 </div>
 
 <div class="grid cols-main">
@@ -85,7 +85,7 @@
       <div class="panel-head"><h2>Activité récente</h2></div>
       <div class="panel-body">
         <ul class="feed">{% for e in recent_events %}
-          <li><span class="dot">{% if e.kind == "document" %}{% icon "file" %}{% elif e.kind == "payment" %}{% icon "wallet" %}{% elif e.kind == "stage" %}{% icon "route" %}{% else %}{% icon "clock" %}{% endif %}</span>
+          <li><span class="dot">{% if e.kind == "document" %}{% icon "file" %}{% elif e.kind == "payment" %}{% icon "cowrie" %}{% elif e.kind == "stage" %}{% icon "route" %}{% else %}{% icon "clock" %}{% endif %}</span>
             <div><a href="{% url 'dossiers:detail' e.dossier_id %}" class="strong" style="color:var(--ink)">{{ e.dossier.student.get_full_name }}</a> — {{ e.message|truncatechars:90 }}<time>{{ e.created_at|naturaltime }}</time></div></li>
         {% empty %}<li class="muted small" style="display:block">Pas encore d'activité.</li>{% endfor %}</ul>
       </div>

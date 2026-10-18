@@ -48,6 +48,7 @@ class Command(BaseCommand):
         )
         agency.slug = "agence-demo-bamako"
         agency.address = "ACI 2000, Bamako"
+        agency.brand_color = "#9C3F1C"
         agency.welcome_message = "Bienvenue ! Suivez ici chaque étape de votre départ. Votre conseiller reste joignable sur WhatsApp."
         agency.save()
 

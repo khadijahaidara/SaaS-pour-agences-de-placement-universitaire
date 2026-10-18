@@ -22,7 +22,7 @@
       <div class="dd-menu">
         {% if is_open %}
         <button class="dd-item" type="button" data-open-modal="m-request">{% icon "file" %} Demander une pièce</button>
-        <button class="dd-item" type="button" data-open-modal="m-payment">{% icon "wallet" %} Enregistrer un paiement</button>
+        <button class="dd-item" type="button" data-open-modal="m-payment">{% icon "cowrie" %} Enregistrer un paiement</button>
         <button class="dd-item" type="button" data-open-modal="m-fee">{% icon "receipt" %} Ajouter des frais</button>
         <div class="dd-sep"></div>
         {% endif %}
@@ -119,7 +119,7 @@
 
   <section class="panel" id="paiements">
     <div class="panel-head"><h2>Frais de service et paiements</h2>
-      {% if is_open %}<div class="row"><button class="btn ghost sm" type="button" data-open-modal="m-fee">{% icon "plus" "sm" %} Frais</button><button class="btn sm" type="button" data-open-modal="m-payment">{% icon "wallet" "sm" %} Paiement</button></div>{% endif %}</div>
+      {% if is_open %}<div class="row"><button class="btn ghost sm" type="button" data-open-modal="m-fee">{% icon "plus" "sm" %} Frais</button><button class="btn sm" type="button" data-open-modal="m-payment">{% icon "cowrie" "sm" %} Paiement</button></div>{% endif %}</div>
     <div class="panel-body">
       <div class="stats" style="margin-bottom:1rem">
         <div class="stat"><div><div class="v" style="font-size:1.2rem">{{ dossier.total_fees|money:cur }}</div><div class="l">Total des frais</div></div></div>
@@ -176,7 +176,7 @@
     <div class="panel-head"><h2>Historique</h2></div>
     <div class="panel-body">
       <ul class="feed">{% for e in events %}
-        <li><span class="dot">{% if e.kind == "document" %}{% icon "file" %}{% elif e.kind == "payment" %}{% icon "wallet" %}{% elif e.kind == "stage" %}{% icon "route" %}{% elif e.kind == "status" %}{% icon "flag" %}{% else %}{% icon "clock" %}{% endif %}</span>
+        <li><span class="dot">{% if e.kind == "document" %}{% icon "file" %}{% elif e.kind == "payment" %}{% icon "cowrie" %}{% elif e.kind == "stage" %}{% icon "route" %}{% elif e.kind == "status" %}{% icon "flag" %}{% else %}{% icon "clock" %}{% endif %}</span>
           <div>{{ e.message }}<time>{{ e.created_at|date:"d/m/Y H:i" }} · {{ e.actor.get_full_name|default:"système" }}{% if not e.visible_to_student %} · interne{% endif %}</time></div></li>
       {% endfor %}</ul>
     </div>

@@ -4,7 +4,7 @@
   <aside class="sidebar" aria-label="Navigation principale">
     {% with name=request.resolver_match.url_name ns=request.resolver_match.namespace %}
     {% if user.role == "platform_admin" %}
-      <a class="brandmark" href="{% url 'console:dashboard' %}"><span class="logo-dot">{% icon "plane" %}</span><span><b>NEURALIS Mobility</b><small>Console plateforme</small></span></a>
+      <a class="brandmark" href="{% url 'console:dashboard' %}"><span class="logo-dot" aria-hidden="true"></span><span><b>NEURALIS Mobility</b><small>Console plateforme</small></span></a>
       <nav class="nav-group">
         <a class="nav-link {% if ns == 'console' and name == 'dashboard' %}active{% endif %}" href="{% url 'console:dashboard' %}">{% icon "dashboard" %} Vue d'ensemble</a>
         <a class="nav-link {% if ns == 'console' and 'prospect' in name %}active{% endif %}" href="{% url 'console:prospects' %}">{% icon "target" %} Prospects{% if nav_due %}<span class="count" title="Relances dues">{{ nav_due }}</span>{% endif %}</a>
@@ -16,7 +16,7 @@
         <a class="nav-link" href="{% url 'admin:index' %}">{% icon "sliders" %} Administration technique</a>
       </nav>
     {% else %}
-      <a class="brandmark" href="{% url 'dossiers:dashboard' %}"><span class="logo-dot">{% icon "plane" %}</span><span><b>NEURALIS Mobility</b><small>Suivi des études à l'étranger</small></span></a>
+      <a class="brandmark" href="{% url 'dossiers:dashboard' %}"><span class="logo-dot" aria-hidden="true"></span><span><b>NEURALIS Mobility</b><small>Études à l'étranger</small></span></a>
       <nav class="nav-group">
         <a class="nav-link {% if ns == 'dossiers' and name == 'dashboard' %}active{% endif %}" href="{% url 'dossiers:dashboard' %}">{% icon "dashboard" %} Tableau de suivi{% if nav_to_review %}<span class="count" title="Pièces à vérifier">{{ nav_to_review }}</span>{% endif %}</a>
         <a class="nav-link {% if ns == 'dossiers' and name != 'dashboard' and name != 'notifications' %}active{% endif %}" href="{% url 'dossiers:list' %}">{% icon "folder" %} Dossiers étudiants</a>

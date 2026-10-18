@@ -24,7 +24,7 @@
       <div><div class="k">Rentrée</div><div class="v">{{ dossier.intake|default:"À préciser" }}</div></div>
     </div>
   </div>
-  <div class="pass-stub">
+  <div class="pass-stub"><span class="motif" aria-hidden="true"></span>
     <div><div class="k">Avancement</div><div class="pct">{{ dossier.progress_percent }}%</div></div>
     <div><div class="k">Étape en cours</div><div class="v">{{ current_stage.name|default:"—" }}</div></div>
     {% if current_stage.due_date %}<div><div class="k">Échéance prévue</div><div class="v">{{ current_stage.due_date|date:"d M Y" }}</div></div>{% endif %}
@@ -33,7 +33,7 @@
 </article>
 
 <div class="next-step {% if next_action.kind == 'done' %}done{% elif next_action.kind == 'wait' or next_action.kind == 'closed' %}calm{% endif %}">
-  <span class="ic-wrap">{% if next_action.kind == "document" %}{% icon "upload" "lg" %}{% elif next_action.kind == "payment" %}{% icon "wallet" "lg" %}{% elif next_action.kind == "done" %}{% icon "check" "lg" %}{% else %}{% icon "clock" "lg" %}{% endif %}</span>
+  <span class="ic-wrap">{% if next_action.kind == "document" %}{% icon "upload" "lg" %}{% elif next_action.kind == "payment" %}{% icon "cowrie" "lg" %}{% elif next_action.kind == "done" %}{% icon "check" "lg" %}{% else %}{% icon "clock" "lg" %}{% endif %}</span>
   <div><div class="k">Votre prochaine action</div><div class="v">{{ next_action.label }}</div></div>
   {% if next_action.kind == "document" %}<a class="btn ochre" href="#doc-{{ next_action.target.pk }}">Déposer maintenant</a>{% endif %}
 </div>
