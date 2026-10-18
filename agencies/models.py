@@ -40,7 +40,7 @@ class Agency(models.Model):
     currency = models.CharField("devise", max_length=10, default="FCFA")
     logo = models.ImageField("logo", upload_to=agency_logo_path, blank=True)
     brand_color = models.CharField(
-        "couleur principale", max_length=7, default="#2C4A8C", validators=[validate_hex_color],
+        "couleur principale", max_length=7, default="#1F4FB8", validators=[validate_hex_color],
         help_text="Utilisée sur le portail de vos étudiants.",
     )
     welcome_message = models.CharField(

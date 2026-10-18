@@ -5,10 +5,28 @@
     <div class="cloth" aria-hidden="true"><span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="b4"></span></div>
     <div class="inner">
       <a class="brandmark" href="{% url 'home' %}"><span class="logo-dot" aria-hidden="true"></span><b>NEURALIS Mobility</b></a>
-      <figure class="chiwara-figure">
-        <span class="shape" role="img" aria-label="Chiwara, cimier bambara stylisé"></span>
-        <figcaption><b>Le Chiwara</b>Antilope des Bamanan, symbole du travail bien fait et de la réussite. Elle accompagne chaque étudiant, de Bamako jusqu'à son arrivée.</figcaption>
-      </figure>
+      <div class="routes-wrap" aria-hidden="true">
+        <svg viewBox="20 110 560 440" preserveAspectRatio="xMidYMid meet">
+          <defs><radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#2f6bff" stop-opacity=".5"/><stop offset="1" stop-color="#2f6bff" stop-opacity="0"/></radialGradient></defs>
+          <circle cx="250" cy="430" r="115" fill="url(#glow)"/>
+          <g fill="none" stroke-linecap="round">
+            <path d="M250 430 C 260 300, 300 220, 330 170" stroke="#c98a2b" stroke-width="2.4" stroke-dasharray="2 7"/>
+            <path d="M250 430 C 160 300, 90 210, 70 150" stroke="#9fb3e6" stroke-width="1.8" stroke-dasharray="2 7"/>
+            <path d="M250 430 C 270 360, 300 320, 300 290" stroke="#9fb3e6" stroke-width="1.8" stroke-dasharray="2 7"/>
+            <path d="M250 430 C 360 330, 430 250, 470 220" stroke="#9fb3e6" stroke-width="1.8" stroke-dasharray="2 7"/>
+            <path d="M250 430 C 200 440, 170 430, 150 420" stroke="#9fb3e6" stroke-width="1.8" stroke-dasharray="2 7"/>
+          </g>
+          <g font-family="Manrope, sans-serif" font-size="14" fill="#c9d3ec">
+            <circle cx="250" cy="430" r="7" fill="#c98a2b"/><circle cx="250" cy="430" r="16" fill="none" stroke="#c98a2b" stroke-opacity=".55"/>
+            <text x="268" y="454" fill="#fff" font-weight="700">Bamako</text>
+            <circle cx="330" cy="170" r="4.5" fill="#fff"/><text x="342" y="174">Paris</text>
+            <circle cx="70" cy="150" r="4.5" fill="#fff"/><text x="82" y="154">Montréal</text>
+            <circle cx="300" cy="290" r="4.5" fill="#fff"/><text x="312" y="294">Casablanca</text>
+            <circle cx="470" cy="220" r="4.5" fill="#fff"/><text x="482" y="224">Istanbul</text>
+            <circle cx="150" cy="420" r="4.5" fill="#fff"/><text x="104" y="404">Dakar</text>
+          </g>
+        </svg>
+      </div>
       <div class="pitch">
         {% block pitch %}
         <h1>Chaque étudiant suivi, de Bamako jusqu'à son arrivée.</h1>
