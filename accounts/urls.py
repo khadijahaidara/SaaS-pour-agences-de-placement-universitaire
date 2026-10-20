@@ -14,4 +14,5 @@ urlpatterns = [
     path("activation/terminee/", views.InvitationDoneView.as_view(), name="invitation_done"),
     path("mot-de-passe/oublie/", views.PasswordResetView.as_view(), name="password_reset"),
     path("mot-de-passe/envoye/", views.PasswordResetDoneView.as_view(), name="password_reset_done"),
+    path("profil/", views.profile, name="profile"),
 ]

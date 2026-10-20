@@ -53,3 +53,43 @@ def home(request):
     if user.role == user.Role.PLATFORM_ADMIN:
         return redirect("console:dashboard")
     return redirect("accounts:logout_page")
+
+
+def layout_for(user) -> str:
+    """Gabarit de mise en page adapté au rôle (portail pour les étudiants)."""
+    return "layouts/portal.html" if user.is_student else "layouts/app.html"
+
+
+@login_required
+def profile(request):
+    from django.contrib import messages
+    from django.contrib.auth import update_session_auth_hash
+    from django.contrib.auth.forms import PasswordChangeForm
+    from django.shortcuts import render
+
+    from .forms import ProfileForm
+
+    user = request.user
+    profile_form = ProfileForm(instance=user, prefix="p")
+    password_form = PasswordChangeForm(user, prefix="pw")
+    for f in password_form.fields.values():
+        f.widget.attrs.setdefault("class", "input")
+    if request.method == "POST":
+        if "save_profile" in request.POST:
+            profile_form = ProfileForm(request.POST, instance=user, prefix="p")
+            if profile_form.is_valid():
+                profile_form.save()
+                messages.success(request, "Profil mis à jour.")
+                return redirect("accounts:profile")
+        elif "change_password" in request.POST:
+            password_form = PasswordChangeForm(user, request.POST, prefix="pw")
+            for f in password_form.fields.values():
+                f.widget.attrs.setdefault("class", "input")
+            if password_form.is_valid():
+                password_form.save()
+                update_session_auth_hash(request, password_form.user)
+                messages.success(request, "Mot de passe modifié.")
+                return redirect("accounts:profile")
+    return render(request, "accounts/profile.html", {
+        "layout": layout_for(user), "profile_form": profile_form, "password_form": password_form,
+    })

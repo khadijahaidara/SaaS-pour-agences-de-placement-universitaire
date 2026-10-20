@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% load static ui %}
+{% block body %}
+<header class="portal-top"><div class="inner"><a class="brandmark row" href="{% url 'home' %}" style="color:var(--ink);text-decoration:none"><img class="logo-mark" src="{% static 'img/neuralis-logo.png' %}" alt="" width="34" height="34"><b style="font-family:var(--font-display)">NEURALIS Mobility</b></a></div></header>
+<main class="portal-main legal">
+  {% block content %}{% endblock %}
+  <p class="small muted" style="margin-top:2rem">Dernière mise à jour : octobre 2026 · Contact : contact@neuralis-mali.com</p>
+</main>
+{% endblock %}

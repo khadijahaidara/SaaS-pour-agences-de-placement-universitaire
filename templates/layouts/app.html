@@ -1,10 +1,10 @@
-{% extends "base.html" %}{% load ui humanize %}
+{% extends "base.html" %}{% load static ui humanize %}
 {% block body %}
 <div class="shell">
   <aside class="sidebar" aria-label="Navigation principale">
     {% with name=request.resolver_match.url_name ns=request.resolver_match.namespace %}
     {% if user.role == "platform_admin" %}
-      <a class="brandmark" href="{% url 'console:dashboard' %}"><span class="logo-dot" aria-hidden="true"></span><span><b>NEURALIS Mobility</b><small>Console plateforme</small></span></a>
+      <a class="brandmark" href="{% url 'console:dashboard' %}"><img class="logo-mark" src="{% static 'img/neuralis-logo.png' %}" alt="" width="38" height="38"><span><b>NEURALIS Mobility</b><small>Console plateforme</small></span></a>
       <nav class="nav-group">
         <a class="nav-link {% if ns == 'console' and name == 'dashboard' %}active{% endif %}" href="{% url 'console:dashboard' %}">{% icon "dashboard" %} Vue d'ensemble</a>
         <a class="nav-link {% if ns == 'console' and 'prospect' in name %}active{% endif %}" href="{% url 'console:prospects' %}">{% icon "target" %} Prospects{% if nav_due %}<span class="count" title="Relances dues">{{ nav_due }}</span>{% endif %}</a>
@@ -16,10 +16,11 @@
         <a class="nav-link" href="{% url 'admin:index' %}">{% icon "sliders" %} Administration technique</a>
       </nav>
     {% else %}
-      <a class="brandmark" href="{% url 'dossiers:dashboard' %}"><span class="logo-dot" aria-hidden="true"></span><span><b>NEURALIS Mobility</b><small>Études à l'étranger</small></span></a>
+      <a class="brandmark" href="{% url 'dossiers:dashboard' %}"><img class="logo-mark" src="{% static 'img/neuralis-logo.png' %}" alt="" width="38" height="38"><span><b>NEURALIS Mobility</b><small>Études à l'étranger</small></span></a>
       <nav class="nav-group">
         <a class="nav-link {% if ns == 'dossiers' and name == 'dashboard' %}active{% endif %}" href="{% url 'dossiers:dashboard' %}">{% icon "dashboard" %} Tableau de suivi{% if nav_to_review %}<span class="count" title="Pièces à vérifier">{{ nav_to_review }}</span>{% endif %}</a>
-        <a class="nav-link {% if ns == 'dossiers' and name != 'dashboard' and name != 'notifications' %}active{% endif %}" href="{% url 'dossiers:list' %}">{% icon "folder" %} Dossiers étudiants</a>
+        <a class="nav-link {% if ns == 'dossiers' and name != 'dashboard' and name != 'notifications' and name != 'finances' %}active{% endif %}" href="{% url 'dossiers:list' %}">{% icon "folder" %} Dossiers étudiants</a>
+        <a class="nav-link {% if name == 'finances' %}active{% endif %}" href="{% url 'dossiers:finances' %}">{% icon "cowrie" %} Finances</a>
         <a class="nav-link {% if name == 'notifications' %}active{% endif %}" href="{% url 'dossiers:notifications' %}">{% icon "bell" %} Notifications</a>
       </nav>
       {% if user.is_agency_admin %}
@@ -69,6 +70,7 @@
         <summary class="row" style="gap:.5rem" aria-label="Mon compte"><span class="avatar">{{ user|initials }}</span>{% icon "chevron-down" "sm" %}</summary>
         <div class="dd-menu">
           <div class="dd-head"><div class="strong">{{ user.get_full_name|default:user.email }}</div><div class="tiny muted">{{ user.email }} · {{ user.get_role_display }}</div></div>
+          <a class="dd-item" href="{% url 'accounts:profile' %}">{% icon "user" %} Mon profil</a>
           {% if user.is_agency_admin %}
           <a class="dd-item" href="{% url 'agencies:settings' %}">{% icon "sliders" %} Paramètres de l'agence</a>
           <a class="dd-item" href="{% url 'agencies:team' %}">{% icon "users" %} Équipe</a>

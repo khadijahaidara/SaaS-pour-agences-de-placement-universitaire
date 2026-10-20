@@ -24,7 +24,7 @@
       <div><div class="k">Rentrée</div><div class="v">{{ dossier.intake|default:"À préciser" }}</div></div>
     </div>
   </div>
-  <div class="pass-stub"><span class="motif" aria-hidden="true"></span>
+  <div class="pass-stub">
     <div><div class="k">Avancement</div><div class="pct">{{ dossier.progress_percent }}%</div></div>
     <div><div class="k">Étape en cours</div><div class="v">{{ current_stage.name|default:"—" }}</div></div>
     {% if current_stage.due_date %}<div><div class="k">Échéance prévue</div><div class="v">{{ current_stage.due_date|date:"d M Y" }}</div></div>{% endif %}

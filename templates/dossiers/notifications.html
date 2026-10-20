@@ -1,4 +1,4 @@
-{% extends "layouts/app.html" %}{% load ui %}{% block title %}Notifications{% endblock %}
+{% extends layout %}{% load ui %}{% block title %}Notifications{% endblock %}
 {% block content %}
 <div class="page-head"><div><h1>Notifications</h1><p>Les dépôts de pièces, changements d'étape et paiements qui vous concernent.</p></div>
 <form method="post" action="{% url 'dossiers:notifications_mark_all' %}">{% csrf_token %}<button class="btn ghost">{% icon "check" "sm" %} Tout marquer comme lu</button></form></div>

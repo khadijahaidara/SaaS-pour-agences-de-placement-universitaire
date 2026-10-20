@@ -24,7 +24,8 @@ class AgencySignupForm(StyledFormMixin, forms.Form):
     password = forms.CharField(label="Mot de passe", strip=False,
                                widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
                                help_text="8 caractères minimum, pas uniquement des chiffres.")
-    accept_terms = forms.BooleanField(label="J'accepte les conditions d'utilisation et la politique de confidentialité")
+    accept_terms = forms.BooleanField(label="J'accepte les conditions d'utilisation et la politique de confidentialité",
+                                      help_text="")
     # Champ piège invisible : rempli uniquement par les robots.
     website = forms.CharField(required=False, widget=forms.TextInput(attrs={"tabindex": "-1", "autocomplete": "off"}))
 

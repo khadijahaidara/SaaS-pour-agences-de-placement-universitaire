@@ -1,0 +1,21 @@
+{% extends layout %}{% load ui %}{% block title %}Mon profil{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Mon profil</h1><p>Vos coordonnées et votre mot de passe.</p></div></div>
+<div class="grid cols-2" style="max-width:980px">
+  <form method="post" class="panel">{% csrf_token %}
+    <div class="panel-head"><h2>Coordonnées</h2></div>
+    <div class="panel-body">
+      <div class="field"><span class="label">Courriel</span><input class="input" value="{{ user.email }}" disabled></div>
+      {% include "includes/form.html" with form=profile_form %}
+      <div class="form-actions"><button class="btn" type="submit" name="save_profile">Enregistrer</button></div>
+    </div>
+  </form>
+  <form method="post" class="panel">{% csrf_token %}
+    <div class="panel-head"><h2>Mot de passe</h2></div>
+    <div class="panel-body">
+      {% include "includes/form.html" with form=password_form %}
+      <div class="form-actions"><button class="btn" type="submit" name="change_password">Changer le mot de passe</button></div>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -162,3 +162,19 @@ class DossierFilterForm(StyledFormMixin, forms.Form):
         self.fields["counselor"].queryset = User.objects.filter(
             agency=agency, role__in=[User.Role.AGENCY_ADMIN, User.Role.COUNSELOR]
         )
+
+
+class FinanceFilterForm(StyledFormMixin, forms.Form):
+    PERIODS = [("month", "Ce mois-ci"), ("last_month", "Mois dernier"), ("year", "Cette année"),
+               ("all", "Depuis le début"), ("custom", "Période personnalisée")]
+    period = forms.ChoiceField(label="Période", choices=PERIODS, required=False, initial="month")
+    start = forms.DateField(label="Du", required=False, widget=DATE_WIDGET)
+    end = forms.DateField(label="Au", required=False, widget=DATE_WIDGET)
+    method = forms.ChoiceField(label="Mode", required=False, choices=[("", "Tous les modes")] + Payment.Method.choices)
+    counselor = forms.ModelChoiceField(label="Conseiller", required=False, queryset=User.objects.none(),
+                                       empty_label="Tous les conseillers")
+
+    def __init__(self, *args, agency, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["counselor"].queryset = User.objects.filter(
+            agency=agency, role__in=[User.Role.AGENCY_ADMIN, User.Role.COUNSELOR])

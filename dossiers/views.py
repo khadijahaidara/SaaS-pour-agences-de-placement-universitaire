@@ -1,5 +1,6 @@
 """Espace agence : tableau de suivi, dossiers, pièces, étapes, paiements."""
 import mimetypes
+from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib import messages
@@ -24,6 +25,7 @@ from .forms import (
     DossierEditForm,
     DossierFilterForm,
     DueDateForm,
+    FinanceFilterForm,
     FeeForm,
     PaymentForm,
     StatusForm,
@@ -127,8 +129,7 @@ def dashboard(request):
 # --------------------------------------------------------------------------- #
 # Liste / création / détail
 # --------------------------------------------------------------------------- #
-@agency_staff_required
-def dossier_list(request):
+def _filtered_dossiers(request):
     form = DossierFilterForm(request.GET or None, agency=request.user.agency)
     qs = Dossier.objects.for_user(request.user).select_related("student", "counselor")
     if form.is_valid():
@@ -144,10 +145,136 @@ def dossier_list(request):
             qs = qs.filter(destination_country__icontains=form.cleaned_data["destination"])
         if form.cleaned_data.get("counselor"):
             qs = qs.filter(counselor=form.cleaned_data["counselor"])
+    return form, qs
+
+
+@agency_staff_required
+def dossier_list(request):
+    form, qs = _filtered_dossiers(request)
     page = Paginator(qs, 25).get_page(request.GET.get("page"))
     params = request.GET.copy()
     params.pop("page", None)
     return render(request, "dossiers/list.html", {"form": form, "page": page, "querystring": params.urlencode()})
+
+
+# --------------------------------------------------------------------------- #
+# Exports et finances
+# --------------------------------------------------------------------------- #
+def _csv_response(filename, header, rows):
+    """CSV lisible directement par Excel (séparateur « ; », UTF-8 avec BOM)."""
+    import csv
+
+    from django.http import HttpResponse
+
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response.write("\ufeff")
+    writer = csv.writer(response, delimiter=";")
+    writer.writerow(header)
+    for row in rows:
+        writer.writerow(["" if v is None else _csv_safe(v) for v in row])
+    return response
+
+
+def _csv_safe(value):
+    """Neutralise les formules (injection CSV) dans les cellules texte."""
+    text = str(value)
+    return "'" + text if text[:1] in ("=", "+", "-", "@") and not text.lstrip("-").replace(" ", "").isdigit() else text
+
+
+@agency_staff_required
+def dossiers_export(request):
+    _, qs = _filtered_dossiers(request)
+    rows = []
+    for d in qs.prefetch_related("stages", "fees", "payments"):
+        stage = d.current_stage
+        rows.append([
+            d.reference, d.student.last_name, d.student.first_name, d.student.email, d.student.phone,
+            d.destination_country, d.destination_city, d.institution, d.program, d.intake,
+            d.get_status_display(), stage.name if stage else "", stage.due_date.strftime("%d/%m/%Y") if stage and stage.due_date else "",
+            d.counselor.get_full_name() if d.counselor else "", int(d.total_fees()), int(d.total_paid()), int(d.balance()),
+            timezone.localtime(d.created_at).strftime("%d/%m/%Y"),
+        ])
+    header = ["Référence", "Nom", "Prénom", "Courriel", "Téléphone", "Pays", "Ville", "Établissement", "Programme",
+              "Rentrée", "Statut", "Étape en cours", "Échéance", "Conseiller", "Frais", "Payé", "Solde", "Ouvert le"]
+    return _csv_response(f"dossiers-{timezone.localdate():%Y%m%d}.csv", header, rows)
+
+
+def _period_bounds(period, start, end):
+    today = timezone.localdate()
+    if period == "month":
+        return today.replace(day=1), today
+    if period == "last_month":
+        last = today.replace(day=1) - timedelta(days=1)
+        return last.replace(day=1), last
+    if period == "year":
+        return today.replace(month=1, day=1), today
+    if period == "custom":
+        return start, end
+    return None, None
+
+
+def _filtered_payments(request):
+    form = FinanceFilterForm(request.GET or None, agency=request.user.agency)
+    qs = Payment.objects.filter(dossier__in=Dossier.objects.for_user(request.user)).select_related(
+        "dossier__student", "dossier__counselor", "recorded_by")
+    start = end = None
+    if form.is_valid():
+        cd = form.cleaned_data
+        start, end = _period_bounds(cd.get("period") or "month", cd.get("start"), cd.get("end"))
+        if cd.get("method"):
+            qs = qs.filter(method=cd["method"])
+        if cd.get("counselor"):
+            qs = qs.filter(dossier__counselor=cd["counselor"])
+    else:
+        start, end = _period_bounds("month", None, None)
+    if start:
+        qs = qs.filter(paid_on__gte=start)
+    if end:
+        qs = qs.filter(paid_on__lte=end)
+    return form, qs, start, end
+
+
+@agency_staff_required
+def finances(request):
+    form, qs, start, end = _filtered_payments(request)
+    valid = qs.filter(cancelled_at__isnull=True)
+    total = valid.aggregate(s=Sum("amount"))["s"] or 0
+    by_method = list(valid.values("method").annotate(total=Sum("amount"), n=Count("id")).order_by("-total"))
+    labels = dict(Payment.Method.choices)
+    top = max([m["total"] for m in by_method] + [1])
+    for m in by_method:
+        m["label"] = labels.get(m["method"], m["method"])
+        m["pct"] = round(m["total"] * 100 / top)
+    scope = Dossier.objects.for_user(request.user)
+    fees = ServiceFee.objects.filter(dossier__in=scope).aggregate(s=Sum("amount"))["s"] or 0
+    paid_all = Payment.objects.filter(dossier__in=scope, cancelled_at__isnull=True).aggregate(s=Sum("amount"))["s"] or 0
+    debtors = []
+    for d in scope.exclude(status=Dossier.Status.CANCELLED).select_related("student").prefetch_related("fees", "payments"):
+        bal = d.balance()
+        if bal > 0:
+            debtors.append({"dossier": d, "balance": bal})
+    debtors.sort(key=lambda x: x["balance"], reverse=True)
+    page = Paginator(qs, 30).get_page(request.GET.get("page"))
+    params = request.GET.copy()
+    params.pop("page", None)
+    return render(request, "dossiers/finances.html", {
+        "form": form, "page": page, "querystring": params.urlencode(), "start": start, "end": end,
+        "total": total, "count": valid.count(), "by_method": by_method, "outstanding": fees - paid_all,
+        "debtors": debtors[:8], "debtors_count": len(debtors),
+    })
+
+
+@agency_staff_required
+def payments_export(request):
+    _, qs, start, end = _filtered_payments(request)
+    rows = [[
+        p.receipt_number, p.paid_on.strftime("%d/%m/%Y"), p.dossier.reference, p.dossier.student.get_full_name(),
+        int(p.amount), p.get_method_display(), p.reference, p.recorded_by.get_full_name() if p.recorded_by else "",
+        "Annulé" if p.is_cancelled else "Valide", p.cancellation_reason,
+    ] for p in qs]
+    header = ["Reçu", "Date", "Dossier", "Étudiant", "Montant", "Mode", "Référence", "Enregistré par", "État", "Motif d'annulation"]
+    return _csv_response(f"paiements-{timezone.localdate():%Y%m%d}.csv", header, rows)
 
 
 @agency_staff_required
@@ -410,8 +537,10 @@ def payment_receipt(request, payment_id):
 
 @login_required
 def notifications(request):
+    from accounts.views import layout_for
+
     qs = request.user.notifications.all()[:100]
-    return render(request, "dossiers/notifications.html", {"notifications": qs})
+    return render(request, "dossiers/notifications.html", {"notifications": qs, "layout": layout_for(request.user)})
 
 
 @require_POST
