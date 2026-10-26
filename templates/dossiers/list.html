@@ -2,7 +2,7 @@
 {% block content %}
 <div class="page-head">
   <div><h1>Dossiers étudiants</h1><p>{{ page.paginator.count }} dossier{{ page.paginator.count|pluralize }}{% if querystring %} correspondant{{ page.paginator.count|pluralize }} aux filtres{% endif %}.</p></div>
-  <div class="row"><a class="btn ghost" href="{% url 'dossiers:export' %}?{{ querystring }}">{% icon "download" "sm" %} Exporter (Excel)</a><a class="btn" href="{% url 'dossiers:create' %}">{% icon "plus" %} Nouveau dossier</a></div>
+  <div class="row">{% if "dossiers.import" in agency_perms %}<a class="btn ghost" href="{% url 'dossiers:import' %}">{% icon "upload" "sm" %} Importer</a>{% endif %}{% if "dossiers.export" in agency_perms %}<a class="btn ghost" href="{% url 'dossiers:export' %}?{{ querystring }}">{% icon "download" "sm" %} Exporter (Excel)</a>{% endif %}{% if "dossiers.create" in agency_perms %}<a class="btn" href="{% url 'dossiers:create' %}">{% icon "plus" %} Nouveau dossier</a>{% endif %}</div>
 </div>
 <section class="panel">
   <form class="filters" method="get">

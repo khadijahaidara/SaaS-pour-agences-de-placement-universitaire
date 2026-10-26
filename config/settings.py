@@ -82,8 +82,12 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.humanize",
+    "core",
     "accounts",
     "agencies",
+    "billing",
+    "audit",
+    "integrations",
     "dossiers",
     "portal",
     "console",
@@ -101,6 +105,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "agencies.middleware.TenantMiddleware",
+    "audit.middleware.RequestContextMiddleware",
+    "accounts.middleware.SecurityMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
@@ -117,6 +123,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "dossiers.context_processors.unread_notifications",
+                "accounts.context_processors.agency_permissions",
             ],
         },
     },
@@ -209,6 +216,7 @@ LOGGING = {
     "disable_existing_loggers": False,
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "root": {"handlers": ["console"], "level": os.environ.get("LOG_LEVEL", "INFO")},
+    "loggers": {"celery.app.trace": {"level": "WARNING"}},
 }
 
 
@@ -246,3 +254,71 @@ SPECTACULAR_SETTINGS = {
         "DocumentStatusEnum": "dossiers.models.DocumentRequest.Status",
     },
 }
+
+
+# --------------------------------------------------------------------------- #
+# Cache, file de tâches (Celery + Redis)
+# --------------------------------------------------------------------------- #
+REDIS_URL = os.environ.get("REDIS_URL", "").strip()
+if REDIS_URL:
+    CACHES = {"default": {"BACKEND": "django.core.cache.backends.redis.RedisCache",
+                          "LOCATION": REDIS_URL, "KEY_PREFIX": "nm", "TIMEOUT": 300}}
+else:
+    CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "neuralis"}}
+
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", REDIS_URL or "memory://")
+# Sans Redis, les tâches s'exécutent tout de suite dans le processus web.
+CELERY_TASK_ALWAYS_EAGER = env_bool("CELERY_TASK_ALWAYS_EAGER", not REDIS_URL)
+CELERY_TASK_EAGER_PROPAGATES = False
+CELERY_TASK_IGNORE_RESULT = True
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_TIME_LIMIT = 300
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+
+def _cron(**kw):
+    from celery.schedules import crontab
+
+    return crontab(**kw)
+
+
+CELERY_BEAT_SCHEDULE = {
+    "relances-pieces": {"task": "core.tasks.run_scheduled", "schedule": _cron(minute=5), "args": ["relances_pieces"]},
+    "relances-paiements": {"task": "core.tasks.run_scheduled", "schedule": _cron(minute=10), "args": ["relances_paiements"]},
+    "fin-essai": {"task": "core.tasks.run_scheduled", "schedule": _cron(minute=15), "args": ["fin_essai"]},
+    "renouvellements": {"task": "core.tasks.run_scheduled", "schedule": _cron(minute=20, hour=8), "args": ["renouvellements"]},
+    "resume-quotidien": {"task": "core.tasks.run_scheduled", "schedule": _cron(minute=0, hour=7), "args": ["resume_quotidien"]},
+    "webhooks-relances": {"task": "integrations.tasks.retry_webhooks", "schedule": 60.0},
+    "purge-journal": {"task": "core.tasks.run_scheduled", "schedule": _cron(minute=30, hour=3), "args": ["purge_journal"]},
+}
+
+# --------------------------------------------------------------------------- #
+# Sécurité des comptes
+# --------------------------------------------------------------------------- #
+LOGIN_MAX_FAILURES = int(os.environ.get("LOGIN_MAX_FAILURES", "5"))
+LOGIN_LOCKOUT_SECONDS = int(os.environ.get("LOGIN_LOCKOUT_MINUTES", "15")) * 60
+AUDIT_RETENTION_DAYS = int(os.environ.get("AUDIT_RETENTION_DAYS", "365"))
+
+# --------------------------------------------------------------------------- #
+# Webhooks
+# --------------------------------------------------------------------------- #
+WEBHOOK_TIMEOUT = int(os.environ.get("WEBHOOK_TIMEOUT", "10"))
+# En production, seules les URL https vers des adresses publiques sont acceptées.
+WEBHOOK_ALLOW_PRIVATE = env_bool("WEBHOOK_ALLOW_PRIVATE", DEBUG)
+
+# Facturation NEURALIS (émetteur des factures d'abonnement)
+BILLING_ISSUER = {
+    "name": os.environ.get("BILLING_ISSUER_NAME", "NEURALIS SARL"),
+    "address": os.environ.get("BILLING_ISSUER_ADDRESS", "Bamako, Mali"),
+    "email": os.environ.get("BILLING_ISSUER_EMAIL", "contact@neuralis-mali.com"),
+    "legal": os.environ.get("BILLING_ISSUER_LEGAL", ""),
+    "payment": os.environ.get("BILLING_PAYMENT_INFO", "Orange Money, Moov Money ou virement bancaire — référence : numéro de facture."),
+}
+
+# Tests : hachage rapide des mots de passe (jamais utilisé hors « manage.py test »).
+import sys  # noqa: E402
+
+if len(sys.argv) > 1 and sys.argv[1] == "test":
+    PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]

@@ -67,6 +67,11 @@ def create_agency(
     )
     install_default_workflows(agency)
     install_default_templates(agency)
+    from accounts.rbac import ensure_default_roles
+    from billing.services import get_subscription
+
+    ensure_default_roles(agency)
+    get_subscription(agency)
 
     from console.models import Prospect, ProspectActivity  # import local : évite un cycle
 

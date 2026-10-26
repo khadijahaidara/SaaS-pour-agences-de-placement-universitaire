@@ -1,0 +1,79 @@
+{% extends layout %}{% load ui %}{% block title %}Sécurité du compte{% endblock %}
+{% block content %}
+<div class="page-head" style="max-width:1040px"><div><h1>Sécurité du compte</h1><p>Double authentification, appareils connectés et activité récente.</p></div>
+<a class="btn ghost" href="{% url 'accounts:profile' %}">{% icon "user" "sm" %} Mon profil</a></div>
+{% if mandatory %}<div class="alert-box error" style="max-width:1040px">{% icon "shield" %}<div><strong>{{ user.agency.name }} impose la double authentification.</strong> Activez-la ci-dessous pour accéder à votre espace (2 minutes, avec Google Authenticator ou Microsoft Authenticator).</div></div>{% endif %}
+
+{% if new_codes %}
+<section class="panel" style="max-width:1040px;margin-bottom:1.1rem;border-color:var(--ochre)">
+  <div class="panel-head"><h2>Vos codes de secours</h2><button class="btn ghost sm" type="button" data-copy="#codes-text">{% icon "copy" "sm" %} Copier</button></div>
+  <div class="panel-body">
+    <p class="small">Chaque code fonctionne <strong>une seule fois</strong> si vous perdez votre téléphone. Notez-les ou imprimez-les maintenant : ils ne seront plus affichés.</p>
+    <div class="codes-grid">{% for c in new_codes %}<span>{{ c }}</span>{% endfor %}</div>
+    <textarea id="codes-text" class="sr-only" readonly>{{ new_codes|join:"
+" }}</textarea>
+  </div>
+</section>
+{% endif %}
+
+<section class="panel" style="max-width:1040px">
+  <div class="panel-body" style="padding:1.2rem 1.6rem">
+    <div class="settings-row" id="deux-facteurs">
+      <div class="intro"><h2>Double authentification</h2><p>Même si votre mot de passe fuite, personne ne peut se connecter sans votre téléphone.</p></div>
+      <div>
+        {% if device and device.confirmed_at %}
+          <div class="toggle-row"><div><div class="strong"><span class="status-dot ok"></span>&nbsp; Activée depuis le {{ device.confirmed_at|date:"d/m/Y" }}</div><div class="small muted">{{ recovery_left }} code{{ recovery_left|pluralize }} de secours restant{{ recovery_left|pluralize }}.</div></div><span class="badge t-ok">{% icon "shield" "sm" %} Protégé</span></div>
+          <div class="grid cols-2" style="margin-top:1rem">
+            <form method="post" action="{% url 'accounts:recovery_regenerate' %}" class="stack">{% csrf_token %}
+              <div class="field"><label for="rc-code">Nouveaux codes de secours</label><input class="input" id="rc-code" name="code" inputmode="numeric" placeholder="Code de l'application" required></div>
+              <button class="btn ghost" type="submit">Générer de nouveaux codes</button></form>
+            {% if not mandatory and not user.agency.require_2fa or user.is_student %}
+            <form method="post" action="{% url 'accounts:totp_disable' %}" class="stack">{% csrf_token %}
+              <div class="field"><label for="d-pw">Désactiver</label><input class="input" id="d-pw" type="password" name="password" placeholder="Mot de passe" required autocomplete="current-password"></div>
+              <input class="input" name="code" inputmode="numeric" placeholder="Code de l'application" required aria-label="Code de l'application">
+              <button class="btn subtle" type="submit">Désactiver la 2FA</button></form>
+            {% else %}<p class="small muted">Votre agence impose la double authentification : elle ne peut pas être désactivée.</p>{% endif %}
+          </div>
+        {% elif setup %}
+          <ol class="small" style="padding-left:1.1rem;margin-top:0">
+            <li>Installez <strong>Google Authenticator</strong>, <strong>Microsoft Authenticator</strong> ou une application équivalente.</li>
+            <li>Scannez ce QR code (ou saisissez la clé à la main).</li>
+            <li>Saisissez le code à 6 chiffres affiché pour confirmer.</li>
+          </ol>
+          <div class="qr-box">{{ setup.qr|safe }}
+            <div class="stack" style="gap:.6rem"><span class="tiny muted">Clé manuelle</span><span class="secret-key" id="secret">{{ setup.secret_groups }}</span>
+              <form method="post" action="{% url 'accounts:totp_confirm' %}" class="row" style="flex-wrap:nowrap">{% csrf_token %}
+                <input class="input otp-input" style="max-width:190px;font-size:1.2rem" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" required aria-label="Code à 6 chiffres" autofocus>
+                <button class="btn" type="submit">Confirmer</button></form></div>
+          </div>
+        {% else %}
+          <div class="toggle-row"><div><div class="strong"><span class="status-dot warn"></span>&nbsp; Non activée</div><div class="small muted">Recommandé pour tous les membres de l'équipe : vous protégez les données de vos étudiants.</div></div>
+            <form method="post" action="{% url 'accounts:totp_start' %}">{% csrf_token %}<button class="btn" type="submit">{% icon "shield" "sm" %} Activer</button></form></div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="settings-row" id="appareils">
+      <div class="intro"><h2>Appareils connectés</h2><p>Déconnectez un appareil perdu ou que vous n'utilisez plus.</p></div>
+      <div>
+        {% for s in sessions %}
+        <div class="device-row"><span class="ic-wrap">{% if "Android" in s.device_label or "iPhone" in s.device_label %}{% icon "smartphone" %}{% else %}{% icon "dashboard" %}{% endif %}</span>
+          <div class="grow"><div class="strong small">{{ s.device_label }}{% if s.current %} <span class="badge t-ok" style="margin-left:.3rem">Cet appareil</span>{% endif %}</div>
+            <div class="tiny muted">{{ s.ip|default:"IP inconnue" }} · actif {{ s.last_seen|timesince }} · connecté le {{ s.created_at|date:"d/m/Y H:i" }}</div></div>
+          {% if not s.current %}<form method="post" action="{% url 'accounts:session_revoke' s.pk %}">{% csrf_token %}<button class="btn subtle sm" type="submit">Déconnecter</button></form>{% endif %}
+        </div>
+        {% empty %}<p class="small muted">Aucune session enregistrée.</p>{% endfor %}
+        {% if sessions|length > 1 %}<form method="post" action="{% url 'accounts:sessions_revoke_others' %}" style="margin-top:.8rem">{% csrf_token %}<button class="btn ghost sm" type="submit">{% icon "logout" "sm" %} Déconnecter tous les autres appareils</button></form>{% endif %}
+      </div>
+    </div>
+
+    <div class="settings-row" id="activite">
+      <div class="intro"><h2>Activité récente</h2><p>Vous ne reconnaissez pas une connexion ? Changez votre mot de passe et déconnectez les autres appareils.</p></div>
+      <div>
+        {% if failed %}<div class="alert-box error small">{% icon "alert" %}<div>{{ failed|length }} tentative{{ failed|length|pluralize }} de connexion échouée{{ failed|length|pluralize }} récemment, la dernière le {{ failed.0.created_at|date:"d/m/Y à H:i" }} ({{ failed.0.ip|default:"IP inconnue" }}).</div></div>{% endif %}
+        <div class="feed">{% for a in activity %}<div class="small" style="padding:.35rem 0;border-bottom:1px solid var(--line)"><strong>{{ a.label }}</strong> <span class="muted">· {{ a.created_at|date:"d/m/Y H:i" }} · {{ a.ip|default:"" }}</span></div>{% empty %}<p class="small muted">Aucune activité.</p>{% endfor %}</div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Rôles et permissions{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Équipe et sécurité</h1><p>Définissez précisément ce que chaque membre peut voir et faire.</p></div>
+{% if feature %}<a class="btn" href="{% url 'agencies:role_create' %}">{% icon "plus" "sm" %} Nouveau rôle</a>{% endif %}</div>
+{% include "agencies/_team_tabs.html" %}
+{% if not feature %}{% include "billing/_upsell.html" with title="Rôles personnalisés : formule Pro" text="Créez vos propres rôles (caissier, assistant, superviseur…) et ajustez chaque permission. Les rôles ci-dessous restent utilisables." %}{% endif %}
+<div class="role-grid">
+  <article class="role-card" style="border-color:var(--river)">
+    <div class="row between"><h3>Responsable d'agence</h3><span class="badge t-river">{{ admins }} membre{{ admins|pluralize }}</span></div>
+    <p class="small muted" style="margin:0">Tous les droits : dossiers, finances, paramètres, équipe, intégrations, abonnement.</p>
+    <div class="perm-dots"><span>Toutes les permissions</span></div>
+  </article>
+  {% for r in roles %}
+  <article class="role-card">
+    <div class="row between"><h3>{{ r.name }}{% if r.is_system %} <span class="tiny muted">· par défaut</span>{% endif %}</h3><span class="badge t-muted">{{ r.n_members }} membre{{ r.n_members|pluralize }}</span></div>
+    <p class="small muted" style="margin:0">{{ r.description|default:"—" }}</p>
+    <div class="perm-dots">{% for g, perms in groups %}{% for code, label in perms %}{% if code in r.permissions %}<span title="{{ label }}">{{ code }}</span>{% endif %}{% endfor %}{% endfor %}</div>
+    <div class="row" style="margin-top:.3rem">
+      <a class="btn ghost sm" href="{% url 'agencies:role_edit' r.pk %}">{% if feature %}{% icon "pencil" "sm" %} Modifier{% else %}{% icon "eye" "sm" %} Voir{% endif %}</a>
+      {% if feature and not r.is_system %}<form method="post" action="{% url 'agencies:role_delete' r.pk %}">{% csrf_token %}<button class="btn subtle sm" type="submit">Supprimer</button></form>{% endif %}
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -98,7 +98,7 @@ class DossierViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
                                           role__in=[User.Role.AGENCY_ADMIN, User.Role.COUNSELOR])
         else:
             d.pop("counselor_email", None)
-            if not isinstance(request.auth, ApiKey) and not request.user.is_agency_admin:
+            if not isinstance(request.auth, ApiKey) and not request.user.has_agency_perm("dossiers.assign"):
                 counselor = request.user
         offer_id = d.pop("offer_id", None)
         custom = validate_custom_data(agency, d.pop("custom_data", {}))

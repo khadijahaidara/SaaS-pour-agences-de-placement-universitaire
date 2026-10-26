@@ -9,7 +9,7 @@
 <h1>Bon retour</h1>
 <p class="lead">Connectez-vous pour suivre vos dossiers.</p>
 <form method="post" novalidate>{% csrf_token %}
-  {% if form.non_field_errors %}<div class="alert-box error">{% icon "alert" %}<div>{% for e in form.non_field_errors.as_data %}{% if e.code == "wrong_agency" %}{{ e.message }}{% else %}Courriel ou mot de passe incorrect. Vérifiez la saisie ou réinitialisez votre mot de passe.{% endif %}{% endfor %}</div></div>{% endif %}
+  {% if form.non_field_errors %}<div class="alert-box error">{% icon "alert" %}<div>{% for e in form.non_field_errors.as_data %}{% if e.code == "wrong_agency" or e.code == "locked" %}{{ e.message }}{% else %}Courriel ou mot de passe incorrect. Vérifiez la saisie ou réinitialisez votre mot de passe.{% endif %}{% endfor %}</div></div>{% endif %}
   <div class="field"><label for="id_username">Courriel</label><input class="input" type="email" name="username" id="id_username" autocomplete="email" required autofocus value="{{ form.username.value|default:'' }}"></div>
   <div class="field">
     <div class="row between"><label for="id_password">Mot de passe</label><a class="small" href="{% url 'accounts:password_reset' %}">Mot de passe oublié ?</a></div>

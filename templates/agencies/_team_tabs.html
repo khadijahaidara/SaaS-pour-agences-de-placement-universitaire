@@ -1,0 +1,6 @@
+{% load ui %}<nav class="tabs" aria-label="Équipe et sécurité">
+  {% if "team.manage" in agency_perms %}<a href="{% url 'agencies:team' %}" class="{% if tab == 'team' %}active{% endif %}">{% icon "users" "sm" %} Membres</a>{% endif %}
+  {% if "roles.manage" in agency_perms %}<a href="{% url 'agencies:roles' %}" class="{% if tab == 'roles' %}active{% endif %}">{% icon "key" "sm" %} Rôles et permissions</a>{% endif %}
+  {% if "settings.manage" in agency_perms %}<a href="{% url 'agencies:security' %}" class="{% if tab == 'security' %}active{% endif %}">{% icon "shield" "sm" %} Sécurité</a>{% endif %}
+  {% if "audit.view" in agency_perms %}<a href="{% url 'audit:journal' %}" class="{% if tab == 'journal' %}active{% endif %}">{% icon "activity" "sm" %} Journal d'audit</a>{% endif %}
+</nav>

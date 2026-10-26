@@ -4,6 +4,9 @@ Principe : on ne fait jamais `Dossier.objects.get(pk=...)` dans une vue ;
 on passe par `Dossier.objects.for_user(user)` pour que l'isolation entre
 agences et entre étudiants soit appliquée partout de la même façon.
 Un objet hors périmètre renvoie 404 (on ne révèle pas son existence).
+
+Les actions sensibles sont protégées par des permissions fines
+(`agency_perm_required("payments.cancel")`), définies dans accounts/rbac.py.
 """
 from functools import wraps
 
@@ -23,6 +26,23 @@ def agency_staff_required(view):
         return view(request, *args, **kwargs)
 
     return wrapper
+
+
+def agency_perm_required(*codes):
+    """Membre de l'équipe disposant de toutes les permissions indiquées."""
+
+    def decorator(view):
+        @login_required
+        @wraps(view)
+        def wrapper(request, *args, **kwargs):
+            user = request.user
+            if not user.is_agency_staff or not all(user.has_agency_perm(c) for c in codes):
+                raise PermissionDenied
+            return view(request, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 def agency_admin_required(view):

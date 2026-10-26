@@ -79,6 +79,11 @@ class Agency(models.Model):
     legal_info = models.CharField("mentions légales", max_length=255, blank=True,
                                   help_text="RCCM, NIF, agrément… imprimés sur les reçus.")
     receipt_footer = models.CharField("pied de page des reçus", max_length=255, blank=True)
+    # --- Sécurité -------------------------------------------------------------
+    require_2fa = models.BooleanField(
+        "double authentification obligatoire", default=False,
+        help_text="Chaque membre de l'équipe doit activer une application d'authentification.",
+    )
     trial_warning_sent_at = models.DateTimeField(null=True, blank=True, editable=False)
     trial_ended_notice_sent_at = models.DateTimeField(null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)

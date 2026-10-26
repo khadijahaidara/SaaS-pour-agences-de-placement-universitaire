@@ -6,7 +6,7 @@
     <p>{% if priority %}{{ priority|length }} dossier{{ priority|length|pluralize }} demande{{ priority|length|pluralize:"nt" }} votre attention, du plus urgent au moins urgent.{% else %}Aucun dossier en alerte : tout avance comme prévu.{% endif %}</p>
   </div>
   <div class="row">
-    {% if user.is_agency_admin %}
+    {% if "dossiers.view_all" in agency_perms %}
     <details class="dd">
       <summary class="btn ghost">{% if scope == "mine" %}Mes dossiers{% else %}Toute l'agence{% endif %} {% icon "chevron-down" "sm" %}</summary>
       <div class="dd-menu">
@@ -15,7 +15,7 @@
       </div>
     </details>
     {% endif %}
-    <a class="btn" href="{% url 'dossiers:create' %}">{% icon "plus" %} Nouveau dossier</a>
+    {% if "dossiers.create" in agency_perms %}<a class="btn" href="{% url 'dossiers:create' %}">{% icon "plus" %} Nouveau dossier</a>{% endif %}
   </div>
 </div>
 

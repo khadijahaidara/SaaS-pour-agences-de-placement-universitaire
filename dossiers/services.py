@@ -11,12 +11,15 @@ from decimal import Decimal
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
-from django.core.mail import send_mail
 from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
+
+from audit.services import record as audit
+from core.tasks import queue_email
+from integrations.services import emit, emit_dossier
 
 from .models import (
     DocumentFile,
@@ -34,8 +37,7 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
-class BusinessRuleError(Exception):
-    """Action refusée par une règle métier ; le message est affichable tel quel."""
+from core.exceptions import BusinessRuleError, QuotaExceeded  # noqa: E402,F401  (réexportées)
 
 
 # --------------------------------------------------------------------------- #
@@ -46,20 +48,9 @@ def notify(recipient, message: str, *, dossier=None, url: str = "", email: bool 
         return
     Notification.objects.create(recipient=recipient, dossier=dossier, message=message, url=url)
     if email and recipient.email and getattr(recipient, "notify_email", True):
-        # L'envoi ne doit jamais faire échouer l'action métier.
-        def _send():
-            try:
-                send_mail(
-                    subject=f"[{settings.SITE_NAME}] {message[:80]}",
-                    message=f"{message}\n\nConnectez-vous pour voir le détail.",
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[recipient.email],
-                    fail_silently=False,
-                )
-            except Exception:  # pragma: no cover - dépend du serveur SMTP
-                logger.exception("Échec d'envoi du courriel à %s", recipient.email)
-
-        transaction.on_commit(_send)
+        # Envoi asynchrone (Celery) après validation : ne fait jamais échouer l'action métier.
+        queue_email(f"[{settings.SITE_NAME}] {message[:80]}",
+                    f"{message}\n\nConnectez-vous pour voir le détail.", [recipient.email])
 
 
 def log_event(dossier, actor, kind, message, *, visible_to_student=True):
@@ -100,6 +91,9 @@ def create_dossier(
     """
     if not agency.is_operational:
         raise BusinessRuleError("L'abonnement de l'agence n'est pas actif : création de dossier impossible.")
+    from billing.services import check_quota
+
+    check_quota(agency, "dossiers")
     email = student_email.strip().lower()
     student = User.objects.filter(email=email).first()
     created_account = False
@@ -150,6 +144,8 @@ def create_dossier(
             _start_stage(first)
 
     log_event(dossier, actor, DossierEvent.Kind.CREATED, "Dossier ouvert par l'agence.")
+    audit("dossier.created", agency=agency, actor=actor, target=dossier)
+    emit_dossier(dossier, "dossier.created")
     if counselor and counselor != actor:
         notify(counselor, f"Nouveau dossier assigné : {dossier.reference} ({student})", dossier=dossier,
                url=reverse("dossiers:detail", args=[dossier.pk]))
@@ -192,8 +188,8 @@ def advance_stage(dossier: Dossier, actor, *, next_due_date=None, force: bool = 
         raise BusinessRuleError(
             "Impossible de terminer l'étape : pièces obligatoires non validées — " + ", ".join(blocking)
         )
-    if force and not actor.is_agency_admin:
-        raise BusinessRuleError("Seul le responsable d'agence peut forcer le passage d'étape.")
+    if force and not actor.has_agency_perm("dossiers.force_advance"):
+        raise BusinessRuleError("Votre rôle ne permet pas de forcer le passage d'étape.")
 
     current.status = DossierStage.Status.DONE
     current.completed_at = timezone.now()
@@ -212,6 +208,8 @@ def advance_stage(dossier: Dossier, actor, *, next_due_date=None, force: bool = 
                   f"Passage forcé malgré pièces manquantes : {', '.join(blocking)}", visible_to_student=False)
     log_event(dossier, actor, DossierEvent.Kind.STAGE, msg)
     notify(dossier.student, msg, dossier=dossier, url=reverse("portal:dossier", args=[dossier.pk]))
+    emit_dossier(dossier, "dossier.stage_changed", completed_stage=current.name,
+                 next_stage=nxt.name if nxt else None, forced=bool(force and blocking))
     return nxt
 
 
@@ -242,6 +240,9 @@ def set_status(dossier: Dossier, actor, status: str, reason: str = ""):
     dossier.save(update_fields=["status", "blocked_reason", "updated_at"])
     msg = f"Statut : {previous} → {dossier.get_status_display()}" + (f" ({reason.strip()})" if reason.strip() else "")
     log_event(dossier, actor, DossierEvent.Kind.STATUS, msg)
+    audit("dossier.status_changed", agency=dossier.agency, actor=actor, target=dossier,
+          metadata={"statut": dossier.get_status_display(), "motif": reason.strip()[:120]})
+    emit_dossier(dossier, "dossier.status_changed", reason=reason.strip())
     notify(dossier.student, f"Votre dossier {dossier.reference} : {dossier.get_status_display()}",
            dossier=dossier, url=reverse("portal:dossier", args=[dossier.pk]))
 
@@ -254,6 +255,9 @@ def assign_counselor(dossier: Dossier, actor, counselor):
     dossier.save(update_fields=["counselor", "updated_at"])
     log_event(dossier, actor, DossierEvent.Kind.ASSIGNMENT,
               f"Conseiller responsable : {counselor or 'aucun'}", visible_to_student=False)
+    audit("dossier.assigned", agency=dossier.agency, actor=actor, target=dossier,
+          metadata={"conseiller": str(counselor or "aucun")})
+    emit_dossier(dossier, "dossier.assigned")
     if counselor and counselor != actor:
         notify(counselor, f"Dossier {dossier.reference} vous a été assigné.", dossier=dossier,
                url=reverse("dossiers:detail", args=[dossier.pk]))
@@ -283,6 +287,9 @@ def submit_document(doc: DocumentRequest, user, uploaded_file) -> DocumentFile:
     _ensure_open(dossier)
     if doc.status == DocumentRequest.Status.APPROVED:
         raise BusinessRuleError("Cette pièce est déjà validée.")
+    from billing.services import check_quota
+
+    check_quota(dossier.agency, "storage", extra_bytes=uploaded_file.size)
     f = DocumentFile.objects.create(
         request=doc, file=uploaded_file, original_name=uploaded_file.name[:255],
         size=uploaded_file.size, uploaded_by=user,
@@ -292,6 +299,8 @@ def submit_document(doc: DocumentRequest, user, uploaded_file) -> DocumentFile:
     doc.save(update_fields=["status", "rejection_reason"])
     who = "l'étudiant" if user.is_student else str(user)
     log_event(dossier, user, DossierEvent.Kind.DOCUMENT, f"Pièce déposée par {who} : {doc.name}")
+    emit(dossier.agency, "document.submitted", {"dossier": dossier.reference, "document": doc.name,
+                                                 "file_name": f.original_name, "by_student": user.is_student})
     if user.is_student:
         recipient = dossier.counselor or dossier.agency.users.filter(role=User.Role.AGENCY_ADMIN, is_active=True).first()
         notify(recipient, f"{dossier.student} a déposé « {doc.name} » ({dossier.reference})", dossier=dossier,
@@ -316,6 +325,10 @@ def review_document(doc: DocumentRequest, actor, *, approve: bool, reason: str =
     else:
         msg = f"Pièce à reprendre : {doc.name} — motif : {doc.rejection_reason}"
     log_event(doc.dossier, actor, DossierEvent.Kind.DOCUMENT, msg)
+    audit("document.reviewed", agency=doc.dossier.agency, actor=actor, target=doc.dossier,
+          metadata={"piece": doc.name, "decision": "validée" if approve else "retournée"})
+    emit(doc.dossier.agency, "document.reviewed", {"dossier": doc.dossier.reference, "document": doc.name,
+                                                   "approved": approve, "reason": doc.rejection_reason})
     notify(doc.dossier.student, msg, dossier=doc.dossier, url=reverse("portal:dossier", args=[doc.dossier_id]))
 
 
@@ -347,6 +360,9 @@ def record_payment(dossier: Dossier, actor, *, amount: Decimal, method, referenc
     cur = dossier.agency.currency
     log_event(dossier, actor, DossierEvent.Kind.PAYMENT,
               f"Paiement reçu : {amount:,.0f} {cur} ({payment.get_method_display()}) — reçu {payment.receipt_number}".replace(",", " "))
+    audit("payment.recorded", agency=dossier.agency, actor=actor, target=dossier,
+          metadata={"recu": payment.receipt_number, "montant": int(amount), "mode": payment.get_method_display()})
+    emit(dossier.agency, "payment.recorded", _payment_data(payment))
     notify(dossier.student,
            f"Paiement de {amount:,.0f} {cur} enregistré. Solde restant : {dossier.balance():,.0f} {cur}.".replace(",", " "),
            dossier=dossier, url=reverse("portal:dossier", args=[dossier.pk]))
@@ -355,8 +371,8 @@ def record_payment(dossier: Dossier, actor, *, amount: Decimal, method, referenc
 
 @transaction.atomic
 def cancel_payment(payment: Payment, actor, reason: str):
-    if not actor.is_agency_admin:
-        raise BusinessRuleError("Seul le responsable d'agence peut annuler un paiement.")
+    if not actor.has_agency_perm("payments.cancel"):
+        raise BusinessRuleError("Votre rôle ne permet pas d'annuler un paiement.")
     if payment.is_cancelled:
         raise BusinessRuleError("Ce paiement est déjà annulé.")
     if not reason.strip():
@@ -367,3 +383,16 @@ def cancel_payment(payment: Payment, actor, reason: str):
     payment.save(update_fields=["cancelled_at", "cancelled_by", "cancellation_reason"])
     log_event(payment.dossier, actor, DossierEvent.Kind.PAYMENT,
               f"Paiement {payment.receipt_number} annulé : {reason.strip()}")
+    audit("payment.cancelled", agency=payment.dossier.agency, actor=actor, target=payment.dossier,
+          metadata={"recu": payment.receipt_number, "montant": int(payment.amount), "motif": reason.strip()[:120]})
+    emit(payment.dossier.agency, "payment.cancelled", _payment_data(payment))
+
+
+def _payment_data(payment) -> dict:
+    return {
+        "dossier": payment.dossier.reference, "receipt_number": payment.receipt_number,
+        "amount": int(payment.amount), "currency": payment.dossier.agency.currency, "method": payment.method,
+        "reference": payment.reference, "paid_on": payment.paid_on.isoformat(),
+        "cancelled": payment.is_cancelled, "cancellation_reason": payment.cancellation_reason,
+        "balance": int(payment.dossier.balance()),
+    }

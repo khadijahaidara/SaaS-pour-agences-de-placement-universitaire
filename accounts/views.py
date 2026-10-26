@@ -7,7 +7,28 @@ from django.urls import reverse_lazy
 
 
 class TenantAuthenticationForm(AuthenticationForm):
-    """Sur l'adresse d'une agence, seuls ses membres (et l'équipe NEURALIS) peuvent se connecter."""
+    """Sur l'adresse d'une agence, seuls ses membres (et l'équipe NEURALIS) peuvent se connecter.
+
+    Protège aussi contre les essais de mots de passe : après LOGIN_MAX_FAILURES échecs
+    pour un même courriel (ou 4× plus pour une même adresse IP), les connexions sont
+    refusées pendant LOGIN_LOCKOUT_MINUTES.
+    """
+
+    def clean(self):
+        from . import security
+
+        email = (self.data.get("username") or "").strip().lower()
+        if security.is_locked(self.request, email):
+            raise ValidationError(
+                "Trop de tentatives de connexion. Pour votre sécurité, réessayez dans quelques minutes "
+                "ou réinitialisez votre mot de passe.", code="locked")
+        try:
+            cleaned = super().clean()
+        except ValidationError:
+            security.register_failure(self.request, email)
+            raise
+        security.clear_failures(self.request, email)
+        return cleaned
 
     def confirm_login_allowed(self, user):
         super().confirm_login_allowed(user)
@@ -20,6 +41,15 @@ class LoginView(auth_views.LoginView):
     template_name = "accounts/login.html"
     redirect_authenticated_user = True
     authentication_form = TenantAuthenticationForm
+
+    def form_valid(self, form):
+        from . import security
+
+        user = form.get_user()
+        if user.has_2fa:
+            security.start_2fa(self.request, user, self.get_success_url())
+            return redirect("accounts:login_2fa")
+        return super().form_valid(form)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -104,7 +134,14 @@ def profile(request):
             if password_form.is_valid():
                 password_form.save()
                 update_session_auth_hash(request, password_form.user)
-                messages.success(request, "Mot de passe modifié. Vos autres sessions restent connectées jusqu'à leur expiration.")
+                from audit.services import record
+
+                from .models import UserSession
+
+                for other in UserSession.objects.filter(user=user).exclude(session_key=request.session.session_key):
+                    other.revoke()
+                record("auth.password_changed", agency=user.agency, actor=user, target=user)
+                messages.success(request, "Mot de passe modifié. Vos autres appareils ont été déconnectés.")
                 return redirect("accounts:profile")
     return render(request, "accounts/profile.html", {
         "layout": layout_for(user), "profile_form": profile_form, "prefs_form": prefs_form,

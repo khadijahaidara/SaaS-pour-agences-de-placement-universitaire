@@ -90,6 +90,8 @@ class DossierQuerySet(models.QuerySet):
         if user.role == user.Role.AGENCY_ADMIN:
             return self.filter(agency=user.agency)
         if user.role == user.Role.COUNSELOR:
+            if user.has_agency_perm("dossiers.view_all"):
+                return self.filter(agency=user.agency)
             return self.filter(agency=user.agency, counselor=user)
         if user.role == user.Role.STUDENT:
             return self.filter(agency=user.agency, student=user)

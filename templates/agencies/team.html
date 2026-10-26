@@ -1,18 +1,25 @@
 {% extends "layouts/app.html" %}{% load ui %}{% block title %}Équipe{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>Équipe de l'agence</h1><p>Les conseillers voient uniquement les dossiers qui leur sont confiés. Les responsables voient toute l'agence.</p></div>
+<div class="page-head"><div><h1>Équipe et sécurité</h1><p>Invitez vos conseillers, attribuez-leur un rôle et contrôlez qui voit quoi.</p></div>
 <button class="btn" type="button" data-open-modal="m-member">{% icon "plus" "sm" %} Inviter un membre</button></div>
+{% include "agencies/_team_tabs.html" with tab="team" %}
 {% if invitation_url %}
 <div class="alert-box info" style="align-items:center">{% icon "copy" %}<div class="grow"><strong>Lien d'activation</strong> — transmettez-le au nouveau membre (valable 7 jours).
   <div class="row" style="margin-top:.5rem"><input class="input grow" readonly value="{{ invitation_url }}" id="invite" style="max-width:560px"><button class="btn sm" type="button" data-copy="#invite">{% icon "copy" "sm" %} Copier</button></div></div></div>
 {% endif %}
+<div class="grid cols-main">
 <section class="panel"><div class="table-wrap"><table class="data">
-  <thead><tr><th>Membre</th><th>Rôle</th><th class="hide-sm">Dossiers suivis</th><th>Statut</th><th></th></tr></thead>
+  <thead><tr><th>Membre</th><th>Rôle</th><th class="hide-sm">Dossiers</th><th class="hide-sm">2FA</th><th>Statut</th><th></th></tr></thead>
   <tbody>{% for m in members %}
   <tr>
-    <td><div class="cell-main"><span class="avatar">{{ m|initials }}</span><span><span class="t">{{ m.get_full_name|default:m.email }}</span><br><span class="s">{{ m.email }}{% if m.phone %} · {{ m.phone }}{% endif %}</span></span></div></td>
-    <td class="small">{{ m.get_role_display }}</td>
+    <td><div class="cell-main"><span class="avatar">{{ m|initials }}</span><span><span class="t">{{ m.get_full_name|default:m.email }}{% if m == user %} <span class="tiny muted">(vous)</span>{% endif %}</span><br><span class="s">{{ m.email }}{% if m.phone %} · {{ m.phone }}{% endif %}</span></span></div></td>
+    <td>{% if m == user or not m.is_active %}<span class="small">{{ m.role_label }}</span>{% else %}
+      <form method="post" action="{% url 'agencies:member_role' m.pk %}">{% csrf_token %}
+        <select class="input select-inline" name="access" data-autosubmit aria-label="Rôle de {{ m }}">
+          {% for value, label in access_choices %}<option value="{{ value }}" {% if value == m.access_value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select></form>{% endif %}</td>
     <td class="hide-sm">{{ m.assigned_dossiers.count }}</td>
+    <td class="hide-sm">{% if m.has_2fa %}<span class="badge t-ok">{% icon "shield" "sm" %} Activée</span>{% else %}<span class="badge t-muted">Non</span>{% endif %}</td>
     <td>{% if not m.is_active %}<span class="badge t-muted">Désactivé</span>{% elif not m.has_usable_password %}<span class="badge t-ochre">Invitation envoyée</span>{% else %}<span class="badge t-ok">Actif</span>{% endif %}</td>
     <td class="num">{% if m != user %}
       <details class="dd"><summary class="icon-btn" aria-label="Actions">{% icon "more" %}</summary><div class="dd-menu">
@@ -21,9 +28,23 @@
       </div></details>{% endif %}</td>
   </tr>{% endfor %}</tbody>
 </table></div></section>
+<aside class="stack">
+  <section class="panel"><div class="panel-head"><h2>Places de l'équipe</h2></div><div class="panel-body">
+    <div class="meter {{ usage.level }}"><div class="meter-head"><span>Membres actifs</span><b>{{ usage.used }}{% if usage.limit %} / {{ usage.limit }}{% endif %}</b></div>
+      <div class="meter-track"><span style="width:{% if usage.pct is not None %}{{ usage.pct }}{% else %}8{% endif %}%"></span></div></div>
+    {% if usage.level == "danger" and "billing.manage" in agency_perms %}<p class="small" style="margin:.8rem 0 0">Besoin de plus de places ? <a href="{% url 'billing:overview' %}">Changer de formule</a></p>{% endif %}
+  </div></section>
+  <section class="panel"><div class="panel-head"><h2>Qui voit quoi ?</h2></div><div class="panel-body small">
+    <p><strong>Responsable d'agence</strong> : tous les droits, y compris l'abonnement.</p>
+    <p><strong>Autres rôles</strong> : uniquement les permissions cochées dans <a href="{% url 'agencies:roles' %}">Rôles et permissions</a>. Sans « voir tous les dossiers », un membre ne voit que les dossiers qui lui sont confiés.</p>
+    <p class="muted" style="margin:0">Chaque changement de rôle est tracé dans le journal d'audit.</p>
+  </div></section>
+</aside>
+</div>
 <dialog class="modal" id="m-member" {% if form.errors %}data-autoopen{% endif %}>
   <div class="modal-head"><div><h2>Inviter un membre</h2><p>Il recevra un lien pour choisir son mot de passe.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
   <form class="modal-body" method="post">{% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert-box error">{{ form.non_field_errors|join:" " }}</div>{% endif %}
     <div class="form-grid">{% for field in form %}{% include "includes/field.html" %}{% endfor %}</div>
     <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">Inviter</button></div>
   </form>

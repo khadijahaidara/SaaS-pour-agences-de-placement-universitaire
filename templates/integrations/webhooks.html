@@ -1,0 +1,28 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Webhooks{% endblock %}
+{% block content %}
+{% include "integrations/_head.html" %}
+{% if not feature %}{% include "billing/_upsell.html" with title="Webhooks : formule Pro" text="Recevez instantanément chaque événement (dossier créé, pièce déposée, paiement…) dans votre CRM, Zapier, Make ou votre propre serveur." %}{% endif %}
+<div class="grid cols-main">
+<section class="panel">
+  <div class="panel-head"><h2>Points de réception</h2>{% if feature %}<a class="btn sm" href="{% url 'integrations:webhook_create' %}">{% icon "plus" "sm" %} Ajouter</a>{% endif %}</div>
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th>Destination</th><th class="hide-sm">Événements</th><th class="hide-sm">Dernières livraisons</th><th>État</th></tr></thead>
+    <tbody>{% for e in endpoints %}<tr>
+      <td><a class="strong" href="{% url 'integrations:webhook_detail' e.pk %}">{{ e.description|default:"Webhook" }}</a><br><span class="tiny muted code">{{ e.url|truncatechars:56 }}</span></td>
+      <td class="hide-sm small">{{ e.event_labels|join:", "|truncatechars:70 }}</td>
+      <td class="hide-sm">{% if e.recent %}<div class="spark" title="{{ e.success_rate }} % livrés">{% for d in e.recent|slice:":14" %}<i class="{% if d.status == 'failed' %}ko{% elif d.status == 'pending' %}wait{% endif %}"></i>{% endfor %}</div>{% else %}<span class="tiny muted">aucune</span>{% endif %}</td>
+      <td>{% if e.is_active %}<span class="badge t-ok">Actif</span>{% else %}<span class="badge t-danger">Suspendu</span>{% endif %}</td>
+    </tr>{% empty %}<tr><td colspan="4"><div class="empty">{% icon "zap" %}<h3>Aucun webhook</h3><p>Ajoutez l'adresse de votre serveur pour recevoir les événements en temps réel.</p></div></td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+<aside class="stack">
+  <section class="panel"><div class="panel-head"><h2>Événements disponibles</h2></div><div class="panel-body small">
+    {% for code, label in events %}<div class="row between" style="padding:.25rem 0"><span>{{ label }}</span><span class="code tiny">{{ code }}</span></div>{% endfor %}
+  </div></section>
+  <section class="panel"><div class="panel-head"><h2>Sécurité</h2></div><div class="panel-body small">
+    <p style="margin-top:0">Chaque envoi est signé (HMAC-SHA256) dans l'en-tête <span class="code">X-Neuralis-Signature</span>. Vérifiez-la avec le secret du webhook avant de traiter l'événement.</p>
+    <p class="muted" style="margin:0">En cas d'échec, nous réessayons 5 fois (1 min → 6 h). Après 15 échecs consécutifs, le webhook est suspendu et vous êtes prévenu.</p>
+  </div></section>
+</aside>
+</div>
+{% endblock %}

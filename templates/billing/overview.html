@@ -1,0 +1,95 @@
+{% extends "layouts/app.html" %}{% load ui humanize %}{% block title %}Abonnement{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Abonnement</h1><p>Votre formule, votre consommation et vos factures NEURALIS.</p></div>
+  <a class="btn ghost" href="mailto:contact@neuralis-mali.com">{% icon "mail" "sm" %} Contacter NEURALIS</a></div>
+
+{% if open_invoice %}
+<div class="alert-box {% if open_invoice.is_overdue %}error{% else %}info{% endif %}" style="align-items:center">{% icon "receipt" %}
+  <div class="grow"><strong>Facture {{ open_invoice.number }} à régler : {{ open_invoice.amount|money:"FCFA" }}</strong> — avant le {{ open_invoice.due_on|date:"d/m/Y" }}{% if open_invoice.is_overdue %} (échéance dépassée){% endif %}. Indiquez le numéro de facture lors du paiement.</div>
+  <a class="btn sm" href="{% url 'billing:invoice_pdf' open_invoice.pk %}" target="_blank">{% icon "download" "sm" %} Facture PDF</a></div>
+{% elif pending %}
+<div class="alert-box info" style="align-items:center">{% icon "clock" %}<div class="grow"><strong>Demande en cours : formule {{ pending.plan.name }}</strong> ({{ pending.get_cycle_display|lower }}), envoyée le {{ pending.created_at|date:"d/m/Y" }}. L'équipe NEURALIS vous adresse la facture ; la formule s'active dès le paiement.</div></div>
+{% endif %}
+
+<div class="plan-hero">
+  <section class="plan-current">
+    <div class="eyebrow">Formule actuelle</div>
+    <h2>{{ sub.plan.name }}</h2>
+    <span class="badge">{{ agency.get_plan_display }}</span>
+    <div class="facts">
+      {% if agency.plan == "trial" %}<div><b>{{ agency.trial_days_left }} jour{{ agency.trial_days_left|pluralize }}</b>d'essai restant{{ agency.trial_days_left|pluralize }}</div>
+      {% elif agency.paid_until %}<div><b>{{ agency.paid_until|date:"d/m/Y" }}</b>payé jusqu'au</div>{% endif %}
+      <div><b>{{ sub.get_cycle_display }}</b>facturation</div>
+      <div><b>{% if sub.cycle == "yearly" %}{{ sub.plan.price_yearly|money:"FCFA" }}{% else %}{{ sub.plan.price_monthly|money:"FCFA" }}{% endif %}</b>par {% if sub.cycle == "yearly" %}an{% else %}mois{% endif %}</div>
+    </div>
+  </section>
+  <section class="panel"><div class="panel-head"><h2>Consommation</h2></div><div class="panel-body">
+    {% for key, u in usage.items %}
+    <div class="meter {{ u.level }}">
+      <div class="meter-head"><span>{{ u.label }}</span><b>{{ u.used|intcomma }}{{ u.unit }} {% if u.limit %}/ {{ u.limit|intcomma }}{{ u.unit }}{% else %}<span class="tiny muted">· illimité</span>{% endif %}</b></div>
+      <div class="meter-track"><span style="width:{% if u.pct is not None %}{{ u.pct }}{% else %}6{% endif %}%"></span></div>
+      {% if u.level == "danger" %}<div class="tiny" style="color:var(--danger)">Limite atteinte : passez à la formule supérieure pour continuer.</div>{% elif u.level == "warn" %}<div class="tiny">Plus de 80 % utilisés.</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div></section>
+</div>
+
+<section style="margin-top:1.6rem" id="formules" data-cycle="{{ sub.cycle }}">
+  <div class="row between" style="margin-bottom:1rem;flex-wrap:wrap;gap:.8rem">
+    <div><h2 style="margin:0">Choisir une formule</h2><p class="small muted" style="margin:.2rem 0 0">Paiement par Orange Money, Moov Money, Wave ou virement. Sans engagement.</p></div>
+    <div class="cycle-switch" role="radiogroup" aria-label="Cycle de facturation">
+      <label><input type="radio" name="cycle-view" value="monthly" {% if sub.cycle != "yearly" %}checked{% endif %} data-cycle-switch><span>Mensuel</span></label>
+      <label><input type="radio" name="cycle-view" value="yearly" {% if sub.cycle == "yearly" %}checked{% endif %} data-cycle-switch><span>Annuel · 2 mois offerts</span></label>
+    </div>
+  </div>
+  <div class="plans">
+    {% for p in plans %}
+    <article class="plan-card {% if p.code == 'pro' %}featured{% endif %} {% if p.pk == sub.plan_id and agency.plan == 'active' %}current{% endif %}">
+      {% if p.code == "pro" %}<span class="ribbon">Le plus choisi</span>{% endif %}
+      <div><h3>{{ p.name }}</h3><p class="small muted" style="margin:.2rem 0 0">{{ p.tagline }}</p></div>
+      <div class="price p-monthly">{{ p.price_monthly|money:"" }}<small> FCFA / mois</small></div>
+      <div class="price p-yearly">{{ p.price_yearly|money:"" }}<small> FCFA / an</small><div class="tiny" style="color:var(--ok);margin-top:.35rem;font-weight:650">soit {{ p.monthly_equiv|money:"" }} FCFA / mois · {{ p.yearly_saving|money:"" }} FCFA économisés</div></div>
+      <ul>
+        <li>{% icon "check" "sm" %} {% if p.max_active_dossiers %}{{ p.max_active_dossiers }} dossiers en cours{% else %}Dossiers illimités{% endif %}</li>
+        <li>{% icon "check" "sm" %} {% if p.max_staff %}{{ p.max_staff }} membres d'équipe{% else %}Équipe illimitée{% endif %}</li>
+        <li>{% icon "check" "sm" %} {% if p.storage_mb %}{% widthratio p.storage_mb 1024 1 %} Go de pièces{% else %}Stockage illimité{% endif %}</li>
+        <li>{% icon "check" "sm" %} Portail étudiant à vos couleurs</li>
+        {% for label, on in p.feature_rows %}<li class="{% if not on %}off{% endif %}">{% if on %}{% icon "check" "sm" %}{% else %}{% icon "x" "sm" %}{% endif %} {{ label }}</li>{% endfor %}
+      </ul>
+      {% if p.pk == sub.plan_id and agency.plan == "active" %}
+        <button class="btn ghost block" type="button" disabled>Formule actuelle</button>
+      {% else %}
+      <form method="post" action="{% url 'billing:request_change' %}">{% csrf_token %}
+        <input type="hidden" name="plan" value="{{ p.code }}"><input type="hidden" name="cycle" value="{{ sub.cycle }}" data-cycle-input>
+        <button class="btn block {% if p.code != 'pro' %}ghost{% endif %}" type="submit">{% if agency.plan == "active" %}Passer à {{ p.name }}{% else %}Choisir {{ p.name }}{% endif %}</button>
+      </form>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="panel" style="margin-top:1.6rem">
+  <div class="panel-head"><h2>Factures</h2></div>
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th>Numéro</th><th class="hide-sm">Période</th><th>Montant</th><th>État</th><th class="hide-sm">Émise le</th><th></th></tr></thead>
+    <tbody>{% for inv in invoices %}<tr>
+      <td class="strong">{{ inv.number }}<br><span class="tiny muted" style="font-weight:400">{{ inv.plan.name }} · {{ inv.get_cycle_display|lower }}</span></td>
+      <td class="hide-sm small">{{ inv.period_start|date:"d/m/Y" }} → {{ inv.period_end|date:"d/m/Y" }}</td>
+      <td class="money">{{ inv.amount|money:"FCFA" }}</td>
+      <td>{% if inv.status == "paid" %}<span class="badge t-ok">Payée le {{ inv.paid_on|date:"d/m/Y" }}</span>{% elif inv.status == "void" %}<span class="badge t-muted">Annulée</span>{% elif inv.is_overdue %}<span class="badge t-danger">En retard</span>{% else %}<span class="badge t-ochre">À payer</span>{% endif %}</td>
+      <td class="hide-sm small">{{ inv.issued_on|date:"d/m/Y" }}</td>
+      <td class="num"><a class="btn subtle sm" href="{% url 'billing:invoice_pdf' inv.pk %}" target="_blank">{% icon "download" "sm" %} PDF</a></td>
+    </tr>{% empty %}<tr><td colspan="6"><div class="empty">{% icon "receipt" %}<h3>Aucune facture</h3><p>Vos factures NEURALIS apparaîtront ici dès votre première souscription.</p></div></td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+<script>
+document.querySelectorAll("[data-cycle-switch]").forEach(function (r) {
+  r.addEventListener("change", function () {
+    var box = document.getElementById("formules");
+    box.dataset.cycle = r.value;
+    box.querySelectorAll("[data-cycle-input]").forEach(function (i) { i.value = r.value; });
+  });
+});
+</script>
+{% endblock %}

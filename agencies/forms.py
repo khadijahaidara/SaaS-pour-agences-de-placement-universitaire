@@ -165,20 +165,77 @@ class ApiKeyForm(StyledFormMixin, forms.Form):
 
 
 class TeamMemberForm(StyledFormMixin, forms.ModelForm):
-    role = forms.ChoiceField(
-        label="Rôle",
-        choices=[(User.Role.COUNSELOR, "Conseiller"), (User.Role.AGENCY_ADMIN, "Responsable d'agence")],
-    )
+    access = forms.ChoiceField(label="Rôle", help_text="Les permissions de chaque rôle se règlent dans « Rôles et permissions ».")
 
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "email", "phone", "role"]
+        fields = ["first_name", "last_name", "email", "phone"]
+
+    def __init__(self, *args, agency, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["access"].choices = access_choices(agency)
+        self.fields["access"].widget.attrs["class"] = "input"
+        for name in ("first_name", "last_name"):
+            self.fields[name].required = True
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
         if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError("Un compte existe déjà avec ce courriel.")
         return email
+
+
+def access_choices(agency):
+    from accounts.models import Role
+    from accounts.rbac import ensure_default_roles
+
+    ensure_default_roles(agency)
+    roles = [(f"role:{r.pk}", r.name) for r in Role.objects.filter(agency=agency)]
+    return roles + [("admin", "Responsable d'agence (tous les droits)")]
+
+
+def apply_access(member, access: str, agency):
+    """Applique un choix « admin » ou « role:<id> » au membre (sans sauvegarder)."""
+    from accounts.models import Role
+
+    if access == "admin":
+        member.role, member.agency_role = User.Role.AGENCY_ADMIN, None
+    else:
+        role = Role.objects.get(pk=int(access.split(":", 1)[1]), agency=agency)
+        member.role, member.agency_role = User.Role.COUNSELOR, role
+    member._agency_perms_cache = None
+
+
+class RoleForm(StyledFormMixin, forms.ModelForm):
+    permissions = forms.MultipleChoiceField(required=False, widget=forms.CheckboxSelectMultiple)
+
+    class Meta:
+        from accounts.models import Role
+
+        model = Role
+        fields = ["name", "description", "permissions"]
+
+    def __init__(self, *args, agency, **kwargs):
+        from accounts.rbac import PERMISSION_LABELS
+
+        self.agency = agency
+        super().__init__(*args, **kwargs)
+        self.fields["permissions"].choices = list(PERMISSION_LABELS.items())
+        self.instance.agency = agency
+
+    def clean_name(self):
+        from accounts.models import Role
+
+        name = self.cleaned_data["name"].strip()
+        if Role.objects.filter(agency=self.agency, name__iexact=name).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("Un rôle porte déjà ce nom.")
+        return name
+
+
+class SecurityPolicyForm(forms.ModelForm):
+    class Meta:
+        model = Agency
+        fields = ["require_2fa"]
 
 
 class WorkflowTemplateForm(StyledFormMixin, forms.ModelForm):

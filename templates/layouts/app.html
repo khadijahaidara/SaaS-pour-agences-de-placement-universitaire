@@ -9,6 +9,7 @@
         <a class="nav-link {% if ns == 'console' and name == 'dashboard' %}active{% endif %}" href="{% url 'console:dashboard' %}">{% icon "dashboard" %} Vue d'ensemble</a>
         <a class="nav-link {% if ns == 'console' and 'prospect' in name %}active{% endif %}" href="{% url 'console:prospects' %}">{% icon "target" %} Prospects{% if nav_due %}<span class="count" title="Relances dues">{{ nav_due }}</span>{% endif %}</a>
         <a class="nav-link {% if ns == 'console' and 'agenc' in name %}active{% endif %}" href="{% url 'console:agencies' %}">{% icon "building" %} Agences clientes</a>
+        <a class="nav-link {% if ns == 'console' and name == 'billing' %}active{% endif %}" href="{% url 'console:billing' %}">{% icon "card" %} Facturation</a>
       </nav>
       <nav class="nav-group">
         <div class="nav-title">Outils</div>
@@ -20,26 +21,31 @@
       <nav class="nav-group">
         <a class="nav-link {% if ns == 'dossiers' and name == 'dashboard' %}active{% endif %}" href="{% url 'dossiers:dashboard' %}">{% icon "dashboard" %} Tableau de suivi{% if nav_to_review %}<span class="count" title="Pièces à vérifier">{{ nav_to_review }}</span>{% endif %}</a>
         <a class="nav-link {% if ns == 'dossiers' and name != 'dashboard' and name != 'notifications' and name != 'finances' %}active{% endif %}" href="{% url 'dossiers:list' %}">{% icon "folder" %} Dossiers étudiants</a>
-        <a class="nav-link {% if name == 'finances' %}active{% endif %}" href="{% url 'dossiers:finances' %}">{% icon "cowrie" %} Finances</a>
+        {% if "payments.view" in agency_perms %}<a class="nav-link {% if name == 'finances' %}active{% endif %}" href="{% url 'dossiers:finances' %}">{% icon "cowrie" %} Finances</a>{% endif %}
         <a class="nav-link {% if name == 'notifications' %}active{% endif %}" href="{% url 'dossiers:notifications' %}">{% icon "bell" %} Notifications</a>
       </nav>
-      {% if user.is_agency_admin %}
+      {% if "workflows.manage" in agency_perms or "team.manage" in agency_perms or "settings.manage" in agency_perms or "integrations.manage" in agency_perms or "billing.manage" in agency_perms or "audit.view" in agency_perms or "roles.manage" in agency_perms %}
       <nav class="nav-group">
         <div class="nav-title">Mon agence</div>
-        <a class="nav-link {% if ns == 'agencies' and 'workflow' in name %}active{% endif %}" href="{% url 'agencies:workflows' %}">{% icon "route" %} Parcours par destination</a>
-        <a class="nav-link {% if ns == 'agencies' and 'team' in name or name == 'member_invitation' %}active{% endif %}" href="{% url 'agencies:team' %}">{% icon "users" %} Équipe</a>
-        <a class="nav-link {% if ns == 'agencies' and 'workflow' not in name and name != 'team' and name != 'member_invitation' %}active{% endif %}" href="{% url 'agencies:settings' %}">{% icon "sliders" %} Paramètres et portail</a>
+        {% if "workflows.manage" in agency_perms %}<a class="nav-link {% if ns == 'agencies' and 'workflow' in name %}active{% endif %}" href="{% url 'agencies:workflows' %}">{% icon "route" %} Parcours par destination</a>{% endif %}
+        {% if "team.manage" in agency_perms %}<a class="nav-link {% if ns == 'agencies' and name == 'team' or name == 'member_invitation' or 'role' in name %}active{% endif %}" href="{% url 'agencies:team' %}">{% icon "users" %} Équipe et rôles</a>
+        {% elif "roles.manage" in agency_perms %}<a class="nav-link {% if 'role' in name %}active{% endif %}" href="{% url 'agencies:roles' %}">{% icon "users" %} Rôles</a>{% endif %}
+        {% if "settings.manage" in agency_perms %}<a class="nav-link {% if ns == 'agencies' and name in 'settings offers offer_create offer_edit fields field_create field_edit templates template_create template_edit receipts web_address' %}active{% endif %}" href="{% url 'agencies:settings' %}">{% icon "sliders" %} Paramètres et portail</a>{% endif %}
+        {% if "integrations.manage" in agency_perms %}<a class="nav-link {% if ns == 'integrations' or name == 'api_keys' %}active{% endif %}" href="{% url 'agencies:api_keys' %}">{% icon "zap" %} Intégrations</a>{% endif %}
+        {% if "settings.manage" in agency_perms %}<a class="nav-link {% if ns == 'audit' or name == 'security' and ns == 'agencies' %}active{% endif %}" href="{% url 'agencies:security' %}">{% icon "shield" %} Sécurité</a>
+        {% elif "audit.view" in agency_perms %}<a class="nav-link {% if ns == 'audit' %}active{% endif %}" href="{% url 'audit:journal' %}">{% icon "shield" %} Journal d'audit</a>{% endif %}
+        {% if "billing.manage" in agency_perms %}<a class="nav-link {% if ns == 'billing' %}active{% endif %}" href="{% url 'billing:overview' %}">{% icon "card" %} Abonnement</a>{% endif %}
       </nav>
       {% endif %}
       <div class="sidebar-foot">
         <div class="agency-chip">
           <span class="avatar sq">{% if user.agency.logo %}<img src="{% url 'agency_logo' user.agency.slug %}" alt="">{% else %}{{ user.agency.initials }}{% endif %}</span>
-          <div class="grow"><div class="small strong">{{ user.agency.name }}</div><div class="tiny" style="color:var(--night-ink)">{{ user.agency.get_plan_display }}</div></div>
+          <div class="grow"><div class="small strong">{{ user.agency.name }}</div><div class="tiny" style="color:var(--night-ink)">{{ user.agency.get_plan_display }}{% if user.agency.subscription %} · {{ user.agency.subscription.plan.name }}{% endif %}</div></div>
         </div>
         {% if user.agency.plan == "trial" %}
-          {% if user.agency.is_operational %}<div class="trial-note">Essai gratuit : {{ user.agency.trial_days_left }} jour{{ user.agency.trial_days_left|pluralize }} restant{{ user.agency.trial_days_left|pluralize }}. Pour continuer ensuite, contactez NEURALIS.</div>
-          {% else %}<div class="trial-note expired">Essai terminé. Vos données sont conservées ; contactez NEURALIS pour activer l'abonnement.</div>{% endif %}
-        {% elif not user.agency.is_operational %}<div class="trial-note expired">Abonnement inactif. Contactez NEURALIS.</div>{% endif %}
+          {% if user.agency.is_operational %}<div class="trial-note">Essai gratuit : {{ user.agency.trial_days_left }} jour{{ user.agency.trial_days_left|pluralize }} restant{{ user.agency.trial_days_left|pluralize }}.{% if "billing.manage" in agency_perms %} <a href="{% url 'billing:overview' %}">Choisir une formule</a>{% endif %}</div>
+          {% else %}<div class="trial-note expired">Essai terminé. Vos données sont conservées.{% if "billing.manage" in agency_perms %} <a href="{% url 'billing:overview' %}">Activer l'abonnement</a>{% endif %}</div>{% endif %}
+        {% elif not user.agency.is_operational %}<div class="trial-note expired">Abonnement inactif.{% if "billing.manage" in agency_perms %} <a href="{% url 'billing:overview' %}">Régulariser</a>{% endif %}</div>{% endif %}
       </div>
     {% endif %}
     {% endwith %}
@@ -69,13 +75,12 @@
       <details class="dd">
         <summary class="row" style="gap:.5rem" aria-label="Mon compte"><span class="avatar">{{ user|initials }}</span>{% icon "chevron-down" "sm" %}</summary>
         <div class="dd-menu">
-          <div class="dd-head"><div class="strong">{{ user.get_full_name|default:user.email }}</div><div class="tiny muted">{{ user.email }} · {{ user.get_role_display }}</div></div>
+          <div class="dd-head"><div class="strong">{{ user.get_full_name|default:user.email }}</div><div class="tiny muted">{{ user.email }} · {{ user.role_label }}</div></div>
           <a class="dd-item" href="{% url 'accounts:profile' %}">{% icon "user" %} Mon profil</a>
-          {% if user.is_agency_admin %}
-          <a class="dd-item" href="{% url 'agencies:settings' %}">{% icon "sliders" %} Paramètres de l'agence</a>
-          <a class="dd-item" href="{% url 'agencies:team' %}">{% icon "users" %} Équipe</a>
+          <a class="dd-item" href="{% url 'accounts:security' %}">{% icon "shield" %} Sécurité du compte{% if not user.has_2fa %}<span class="badge t-ochre" style="margin-left:auto">2FA</span>{% endif %}</a>
+          {% if "settings.manage" in agency_perms %}<a class="dd-item" href="{% url 'agencies:settings' %}">{% icon "sliders" %} Paramètres de l'agence</a>{% endif %}
+          {% if "billing.manage" in agency_perms %}<a class="dd-item" href="{% url 'billing:overview' %}">{% icon "card" %} Abonnement</a>{% endif %}
           <div class="dd-sep"></div>
-          {% endif %}
           <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="dd-item danger" type="submit">{% icon "logout" %} Se déconnecter</button></form>
         </div>
       </details>

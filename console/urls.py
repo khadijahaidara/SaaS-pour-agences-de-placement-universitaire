@@ -16,4 +16,10 @@ urlpatterns = [
     path("prospects/<int:pk>/convertir/", views.prospect_convert, name="prospect_convert"),
     path("agences/", views.agency_list, name="agencies"),
     path("agences/<int:pk>/formule/", views.agency_plan, name="agency_plan"),
+    path("agences/<int:pk>/offre/", views.agency_tier, name="agency_tier"),
+    path("facturation/", views.billing, name="billing"),
+    path("facturation/factures/", views.invoice_create, name="invoice_create"),
+    path("facturation/factures/<int:pk>/payee/", views.invoice_paid, name="invoice_paid"),
+    path("facturation/factures/<int:pk>/annuler/", views.invoice_void, name="invoice_void"),
+    path("facturation/factures/<int:pk>/pdf/", views.invoice_pdf, name="invoice_pdf"),
 ]

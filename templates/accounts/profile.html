@@ -50,6 +50,14 @@
       </div>
     </form>
 
+    <div class="settings-row" id="deux-facteurs">
+      <div class="intro"><h2>Double authentification</h2><p>Un code de votre téléphone en plus du mot de passe.</p></div>
+      <div class="toggle-row" style="border:0">
+        <div><div class="strong"><span class="status-dot {% if user.has_2fa %}ok{% else %}warn{% endif %}"></span>&nbsp; {% if user.has_2fa %}Activée{% else %}Non activée{% endif %}</div><div class="small muted">Gérez aussi vos appareils connectés et votre activité récente.</div></div>
+        <a class="btn {% if user.has_2fa %}ghost{% endif %} sm" href="{% url 'accounts:security' %}">{% icon "shield" "sm" %} {% if user.has_2fa %}Gérer{% else %}Activer{% endif %}</a>
+      </div>
+    </div>
+
     <form method="post" class="settings-row" id="securite">{% csrf_token %}
       <div class="intro"><h2>Sécurité</h2><p>Choisissez un mot de passe que vous n'utilisez nulle part ailleurs.</p></div>
       <div style="max-width:520px">

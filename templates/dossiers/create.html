@@ -21,7 +21,7 @@
     <h2>Projet d'études</h2>
     <div class="form-grid">
       {% include "includes/field.html" with field=form.workflow %}
-      {% if user.is_agency_admin %}{% include "includes/field.html" with field=form.counselor %}{% else %}<div></div>{% endif %}
+      {% if "dossiers.assign" in agency_perms %}{% include "includes/field.html" with field=form.counselor %}{% else %}<div></div>{% endif %}
       {% include "includes/field.html" with field=form.destination_country %}
       {% include "includes/field.html" with field=form.destination_city %}
       {% include "includes/field.html" with field=form.institution %}

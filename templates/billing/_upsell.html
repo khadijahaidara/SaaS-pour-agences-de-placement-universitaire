@@ -1,0 +1,5 @@
+{% load ui %}<div class="upsell">
+  <span class="upsell-ic">{% icon "sparkle" %}</span>
+  <div class="grow"><strong>{{ title }}</strong><p>{{ text }}</p></div>
+  {% if "billing.manage" in agency_perms %}<a class="btn sm" href="{% url 'billing:overview' %}#formules">Voir les formules</a>{% else %}<span class="small muted">Parlez-en au responsable de l'agence.</span>{% endif %}
+</div>

@@ -39,14 +39,35 @@ le conseiller valide ou retourne avec un motif → le dossier progresse → l'é
 - Le portail et les reçus rappellent que **le visa et l'admission ne sont jamais garantis**.
 - Modifier un modèle de parcours n'altère pas les dossiers déjà ouverts.
 
-### Rôles
+### Rôles et permissions fines
 
 | Rôle | Accès |
 |---|---|
-| Responsable d'agence | Tous les dossiers de l'agence, équipe, modèles de parcours, réaffectation, annulation de paiements, passage forcé |
-| Conseiller | Uniquement les dossiers qui lui sont confiés |
+| Responsable d'agence | Toutes les permissions, y compris l'abonnement |
+| Rôles d'équipe (Conseiller, Superviseur, Caissier, Assistant administratif, ou rôles créés par l'agence) | Uniquement les permissions cochées (21 permissions : dossiers, pièces, finances, administration). Sans `dossiers.view_all`, le membre ne voit que les dossiers qui lui sont confiés |
 | Étudiant | Uniquement son ou ses dossiers, via le portail |
-| Administrateur plateforme (NEURALIS) | Admin Django (`/plateforme/admin/`), création des agences |
+| Administrateur plateforme (NEURALIS) | Console (CRM, agences, facturation) et admin technique (`/plateforme/admin/`) |
+
+Catalogue des permissions : `accounts/rbac.py`. Contrôle dans les vues avec
+`@agency_perm_required("payments.cancel")`, dans les gabarits avec `{% if "payments.cancel" in agency_perms %}`,
+et dans les services (règles métier). Un membre ne peut jamais accorder une permission qu'il n'a pas.
+
+## Options SaaS
+
+| Option | Ce qui est inclus |
+|---|---|
+| **Formules et facturation** | Starter / Pro / Business (prix mensuel ou annuel, 2 mois offerts), quotas appliqués (dossiers en cours, membres, stockage) et fonctionnalités par formule ; page « Abonnement » (consommation, comparatif, demande de changement) ; factures numérotées `NM-2026-0001` en PDF ; console NEURALIS : MRR/ARR, demandes, émission, encaissement (active l'agence et prolonge la période), annulation ; facture de renouvellement émise automatiquement 7 jours avant l'échéance |
+| **Sécurité entreprise** | Double authentification TOTP (QR code, 10 codes de secours, code à usage unique) ; 2FA obligatoire par agence (Pro+) ; blocage après 5 échecs de connexion (15 min) ; appareils connectés avec déconnexion à distance ; journal d'audit (connexions, téléchargements de pièces, exports, paiements, rôles, clés API, webhooks, facturation…) avec filtres et export ; changement de mot de passe = déconnexion des autres appareils |
+| **Rôles et permissions fins** | Voir ci-dessus ; rôles personnalisés à partir de la formule Pro |
+| **Webhooks et intégrations** | 8 événements (`dossier.created`, `dossier.stage_changed`, `dossier.status_changed`, `dossier.assigned`, `document.submitted`, `document.reviewed`, `payment.recorded`, `payment.cancelled`), signature HMAC-SHA256, 6 tentatives (1 min → 6 h), suspension après 15 échecs, journal des livraisons, test et renvoi, protection SSRF ; import CSV des dossiers avec aperçu ligne par ligne |
+
+| Formule | Prix / mois | Dossiers en cours | Équipe | Stockage | API, webhooks, rôles, audit, 2FA obligatoire | Domaine perso. |
+|---|---|---|---|---|---|---|
+| Starter | 25 000 FCFA | 50 | 3 | 2 Go | — | — |
+| Pro (essai) | 60 000 FCFA | 300 | 10 | 20 Go | ✓ | — |
+| Business | 150 000 FCFA | illimité | illimitée | 100 Go | ✓ | ✓ |
+
+Les formules se modifient dans l'administration technique (modèle `Plan`).
 
 ## Personnalisation par agence (Paramètres de l'agence)
 
@@ -58,7 +79,9 @@ le conseiller valide ou retourne avec un motif → le dossier progresse → l'é
 | Messages | Modèles WhatsApp / courriel avec variables (`{prenom}`, `{etape}`, `{solde}`, `{pieces_manquantes}`…) envoyés depuis un dossier |
 | Reçus | Préfixe et numérotation continue par année (`HZN-2026-0001`), mentions légales, pied de page |
 | Adresse web | Sous-domaine `agence.neuralis-mobility.com` à ses couleurs ; les comptes d'autres agences y sont refusés |
-| API | Clés d'accès pour connecter un site web, une application mobile… |
+
+Hors paramètres : **Intégrations** (clés API, webhooks, import CSV), **Équipe et sécurité** (membres, rôles,
+politique 2FA, journal d'audit) et **Abonnement**.
 
 En développement, `BASE_DOMAIN=localhost` (par défaut avec `DJANGO_DEBUG=1`) permet de tester
 http://agence-demo-bamako.localhost:8000. En production : `BASE_DOMAIN=neuralis-mobility.com`, un
@@ -69,14 +92,30 @@ personnalisés des agences se renseignent dans l'administration technique et dan
 
 Voir [`docs/api.md`](docs/api.md) — documentation interactive sur `/api/docs/`.
 
-## Tâches automatiques
+## File de tâches, cache et tâches automatiques
 
-`python manage.py run_scheduled_tasks`, à lancer **toutes les heures** (idempotent, sans doublons) :
+**Avec Redis** (`REDIS_URL`, recommandé en production) : les courriels et les webhooks partent dans une file
+Celery traitée par le service `worker` (nouvelles tentatives automatiques si le SMTP échoue), le cache et la
+limitation des connexions passent par Redis, et `beat` déclenche les tâches planifiées.
+
+```bash
+celery -A config worker -l info      # traitement de la file
+celery -A config beat -l info        # planification
+```
+
+**Sans Redis** (développement, tests, petit serveur) : tout s'exécute immédiatement dans le processus web et les
+tâches planifiées passent par `python manage.py run_scheduled_tasks`, à lancer **toutes les heures**
+(idempotent, sans doublons) :
 
 - relance des étudiants pour les pièces dont l'échéance approche ou est dépassée (au plus tous les 3 jours) ;
 - rappel des échéances de paiement non couvertes (au plus une fois par semaine) ;
 - résumé quotidien par courriel aux conseillers et responsables (une fois par jour, désactivable dans « Mon profil ») ;
-- avertissement des responsables 3 jours avant la fin de l'essai, puis à son expiration.
+- avertissement des responsables 3 jours avant la fin de l'essai, puis à son expiration ;
+- facture de renouvellement 7 jours avant la fin de l'abonnement ;
+- nouvelles tentatives des webhooks en échec ;
+- purge du journal d'audit (365 jours, `AUDIT_RETENTION_DAYS`) et des sessions inactives.
+
+Sonde de santé : `GET /health/` (base de données + cache, 503 si dégradé).
 
 Chaque exécution est journalisée (console NEURALIS → « Tâches automatiques »).
 Planification : service `scheduler` du `docker-compose.yml`, cron (`scripts/run_tasks.sh`) ou
@@ -107,7 +146,9 @@ Ouvrir http://127.0.0.1:8000 — mot de passe de tous les comptes de démonstrat
 | Compte | Rôle |
 |---|---|
 | admin@demo.ml | Responsable d'agence |
-| conseiller@demo.ml / conseillere@demo.ml | Conseillers |
+| conseiller@demo.ml | Rôle « Conseiller » (ses dossiers uniquement) |
+| conseillere@demo.ml | Rôle « Superviseur » (tous les dossiers, sans administration) |
+| caisse@demo.ml | Rôle « Caissier » (finances de toute l'agence) |
 | etudiant@demo.ml | Étudiante (pièces à déposer — idéal pour la démo du parcours) |
 | console@demo.ml | Équipe NEURALIS : console CRM + agences |
 | ibrahim@demo.ml, aminata@demo.ml, oumar@demo.ml, mariam@demo.ml | Autres étudiants à différents stades |
@@ -149,7 +190,7 @@ Pour créer un compte d'équipe NEURALIS : `python manage.py createsuperuser`.
 python manage.py test
 ```
 
-67 tests couvrent le parcours prioritaire (services et HTTP), l'isolation entre agences, conseillers et étudiants,
+104 tests couvrent les formules et quotas, la facturation (PDF, encaissement, renouvellement), les rôles et l'absence d'élévation de privilèges, la 2FA, le blocage des connexions, les sessions, le journal d'audit, les webhooks (signature, relances, suspension, SSRF), l'import CSV, le parcours prioritaire (services et HTTP), l'isolation entre agences, conseillers et étudiants,
 la protection des fichiers, la validation des dépôts, les règles de paiement, les alertes, l'activation des comptes, l'inscription libre (anti-abus, essai), le blocage à expiration, l'import de prospects, le pipeline commercial et la conversion en agence.
 La CI GitHub (`.github/workflows/tests.yml`) les exécute sur PostgreSQL à chaque push.
 
@@ -159,7 +200,12 @@ La CI GitHub (`.github/workflows/tests.yml`) les exécute sur PostgreSQL à chaq
 config/        paramètres (variables d'environnement), URLs
 accounts/      utilisateur par courriel + rôles, connexion, activation par lien
 agencies/      agence (locataire), inscription libre, essai/abonnement, marque du portail, équipe, parcours
-console/       console NEURALIS : CRM prospects, import CSV/Word, agences clientes
+console/       console NEURALIS : CRM prospects, import CSV/Word, agences clientes, facturation
+core/          socle : Celery (courriels, tâches planifiées), sonde /health/, exceptions métier
+billing/       formules, abonnements, quotas, factures PDF
+audit/         journal d'audit (contexte de requête, écran et export)
+integrations/  webhooks signés (émission, livraison, relances)
+api/           API REST (clés, quotas, OpenAPI)
 dossiers/      cœur métier : modèles, services (règles), espace agence, permissions, tests
   services.py  toutes les actions métier (transaction + journal + notification)
   defaults.py  modèles de parcours par défaut (hypothèses à valider en entretien)
@@ -175,5 +221,7 @@ docs/          notes fonctionnelles et suite du produit
 - Configurer un SMTP réel (`EMAIL_*`) ; sinon les courriels s'affichent seulement dans la console.
 - Servir derrière un proxy HTTPS (Nginx, Caddy…) qui transmet `X-Forwarded-Proto`.
 - Ne jamais exposer `MEDIA_ROOT` en statique.
+- Lancer Redis + `worker` + `beat` (voir `docker-compose.yml`) ; surveiller `GET /health/`.
+- Renseigner `BILLING_ISSUER_*` (mentions légales des factures NEURALIS).
 
 Voir [`docs/fonctionnel.md`](docs/fonctionnel.md) pour les critères d'acceptation et la feuille de route V1.

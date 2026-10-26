@@ -1,7 +1,7 @@
 {% extends "layouts/app.html" %}{% load ui %}{% block title %}API{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>Paramètres de l'agence</h1><p>Personnalisez NEURALIS Mobility à l'image de votre agence.</p></div></div>
-{% include "agencies/_tabs.html" %}
+{% include "integrations/_head.html" %}
+{% if not feature %}{% include "billing/_upsell.html" with title="L'API REST est incluse à partir de la formule Pro" text="Connectez votre site web, votre CRM ou une application mobile à vos dossiers en temps réel." %}{% endif %}
 {% if new_key %}
 <div class="alert-box info" style="align-items:center">{% icon "lock" %}<div class="grow"><strong>Votre nouvelle clé</strong> — copiez-la maintenant et gardez-la secrète, elle ne sera plus affichée.
   <div class="row" style="margin-top:.5rem"><input class="input grow code" readonly value="{{ new_key }}" id="new-key"><button class="btn sm" type="button" data-copy="#new-key">{% icon "copy" "sm" %} Copier</button></div></div></div>

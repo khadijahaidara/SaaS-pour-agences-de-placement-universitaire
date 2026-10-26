@@ -26,6 +26,7 @@
   <section class="panel"><div class="panel-head"><h2>Votre propre domaine</h2></div>
     <div class="panel-body small">
       {% if agency.custom_domain %}<p>Domaine actif : <span class="code">{{ agency.custom_domain }}</span></p>
+      {% elif not custom_domain_feature %}<p class="muted">Utilisez votre propre domaine (ex. <span class="code">suivi.monagence.ml</span>) avec la formule <strong>Business</strong>.</p>{% if "billing.manage" in agency_perms %}<a class="btn ghost sm" href="{% url 'billing:overview' %}#formules">Voir les formules</a>{% endif %}
       {% else %}<p class="muted">Vous voulez utiliser votre domaine (ex. <span class="code">suivi.monagence.ml</span>) ? Contactez l'équipe NEURALIS : nous le configurons avec vous (DNS et certificat HTTPS).</p>{% endif %}
     </div></section>
 </aside>

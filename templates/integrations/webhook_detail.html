@@ -1,0 +1,48 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Webhook{% endblock %}
+{% block content %}
+<div class="page-head"><div><div class="crumbs"><a href="{% url 'integrations:webhooks' %}">Webhooks</a> {% icon "chevron-right" "sm" %}</div>
+  <h1>{{ endpoint.description|default:"Webhook" }}</h1><p class="code small">{{ endpoint.url }}</p></div>
+  <div class="row">
+    <form method="post" action="{% url 'integrations:webhook_test' endpoint.pk %}">{% csrf_token %}<button class="btn ghost" type="submit">{% icon "zap" "sm" %} Envoyer un test</button></form>
+    <details class="dd"><summary class="btn ghost">Actions {% icon "chevron-down" "sm" %}</summary><div class="dd-menu">
+      <a class="dd-item" href="{% url 'integrations:webhook_edit' endpoint.pk %}">{% icon "pencil" %} Modifier</a>
+      <form method="post" action="{% url 'integrations:webhook_toggle' endpoint.pk %}">{% csrf_token %}<button class="dd-item" type="submit">{% if endpoint.is_active %}{% icon "lock" %} Suspendre{% else %}{% icon "check" %} Réactiver{% endif %}</button></form>
+      <form method="post" action="{% url 'integrations:webhook_rotate' endpoint.pk %}">{% csrf_token %}<button class="dd-item" type="submit">{% icon "key" %} Renouveler le secret</button></form>
+      <div class="dd-sep"></div>
+      <form method="post" action="{% url 'integrations:webhook_delete' endpoint.pk %}">{% csrf_token %}<button class="dd-item danger" type="submit">{% icon "x" %} Supprimer</button></form>
+    </div></details>
+  </div></div>
+{% if not endpoint.is_active %}<div class="alert-box error">{% icon "alert" %}<div><strong>Webhook suspendu.</strong> {{ endpoint.disabled_reason|default:"Aucun événement n'est envoyé." }}</div></div>{% endif %}
+<div class="grid cols-main">
+<section class="panel deliveries">
+  <div class="panel-head"><h2>Dernières livraisons</h2><span class="small muted">30 jours conservés</span></div>
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th>Événement</th><th>Résultat</th><th class="hide-sm">Tentatives</th><th class="hide-sm">Date</th><th></th></tr></thead>
+    <tbody>{% for d in deliveries %}<tr>
+      <td><span class="code">{{ d.event }}</span><details><summary class="tiny muted" style="cursor:pointer">Contenu</summary><pre class="payload">{{ d.payload|pretty_json }}</pre>{% if d.response_body %}<div class="tiny muted" style="margin-top:.4rem">Réponse : {{ d.response_body|truncatechars:300 }}</div>{% endif %}</details></td>
+      <td>{% if d.status == "success" %}<span class="badge t-ok">HTTP {{ d.response_status }}</span>{% elif d.status == "pending" %}<span class="badge t-ochre">Nouvel essai {{ d.next_attempt_at|date:"H:i" }}</span>{% else %}<span class="badge t-danger">Échec</span>{% endif %}
+        {% if d.last_error and d.status != "success" %}<br><span class="tiny" style="color:var(--danger)">{{ d.last_error|truncatechars:70 }}</span>{% endif %}</td>
+      <td class="hide-sm small">{{ d.attempts }}{% if d.duration_ms %} · {{ d.duration_ms }} ms{% endif %}</td>
+      <td class="hide-sm small">{{ d.created_at|date:"d/m H:i:s" }}</td>
+      <td class="num">{% if d.status != "pending" %}<form method="post" action="{% url 'integrations:delivery_resend' endpoint.pk d.pk %}">{% csrf_token %}<button class="btn subtle sm" type="submit" title="Renvoyer">{% icon "arrow-right" "sm" %}</button></form>{% endif %}</td>
+    </tr>{% empty %}<tr><td colspan="5"><div class="empty">{% icon "inbox" %}<h3>Aucune livraison</h3><p>Envoyez un test pour vérifier que votre serveur répond (code HTTP 2xx).</p></div></td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+<aside class="stack">
+  <section class="panel"><div class="panel-head"><h2>Secret de signature</h2></div><div class="panel-body small">
+    <div class="row" style="flex-wrap:nowrap"><input class="input grow code" type="password" readonly value="{{ endpoint.secret }}" id="wh-secret"><button class="btn ghost sm" type="button" data-toggle-secret>{% icon "eye" "sm" %}</button><button class="btn ghost sm" type="button" data-copy="#wh-secret">{% icon "copy" "sm" %}</button></div>
+    <p class="muted">Calculez <span class="code">HMAC-SHA256(secret, t + "." + corps)</span> et comparez-le à <span class="code">v1</span> dans l'en-tête <span class="code">X-Neuralis-Signature: t=…,v1=…</span>. Refusez les messages de plus de 5 minutes.</p>
+  </div></section>
+  <section class="panel"><div class="panel-head"><h2>Abonnements</h2></div><div class="panel-body small">
+    {% for l in endpoint.event_labels %}<div style="padding:.2rem 0">{% icon "check" "sm" %} {{ l }}</div>{% endfor %}
+    <p class="muted" style="margin-bottom:0">Échecs consécutifs : {{ endpoint.consecutive_failures }} / {{ max_failures }}</p>
+  </div></section>
+</aside>
+</div>
+<script>
+document.addEventListener("click", function (e) {
+  var b = e.target.closest("[data-toggle-secret]"); if (!b) return;
+  var i = document.getElementById("wh-secret"); i.type = i.type === "password" ? "text" : "password";
+});
+</script>
+{% endblock %}

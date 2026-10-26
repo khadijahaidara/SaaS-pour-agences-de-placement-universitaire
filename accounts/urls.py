@@ -2,7 +2,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 from django.views.generic import TemplateView
 
-from . import views
+from . import security_views, views
 
 app_name = "accounts"
 
@@ -15,4 +15,12 @@ urlpatterns = [
     path("mot-de-passe/oublie/", views.PasswordResetView.as_view(), name="password_reset"),
     path("mot-de-passe/envoye/", views.PasswordResetDoneView.as_view(), name="password_reset_done"),
     path("profil/", views.profile, name="profile"),
+    path("connexion/verification/", security_views.login_2fa, name="login_2fa"),
+    path("securite/", security_views.security_page, name="security"),
+    path("securite/2fa/demarrer/", security_views.totp_start, name="totp_start"),
+    path("securite/2fa/confirmer/", security_views.totp_confirm, name="totp_confirm"),
+    path("securite/2fa/desactiver/", security_views.totp_disable, name="totp_disable"),
+    path("securite/codes-de-secours/", security_views.recovery_regenerate, name="recovery_regenerate"),
+    path("securite/sessions/<int:pk>/deconnecter/", security_views.session_revoke, name="session_revoke"),
+    path("securite/sessions/deconnecter-autres/", security_views.sessions_revoke_others, name="sessions_revoke_others"),
 ]

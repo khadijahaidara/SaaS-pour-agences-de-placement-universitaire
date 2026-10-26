@@ -10,7 +10,7 @@ from urllib.parse import quote
 
 from django import forms
 from django.conf import settings
-from django.core.mail import send_mail
+from core.tasks import queue_email
 from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
@@ -234,11 +234,8 @@ def record_message(dossier, actor, *, channel: str, subject: str, body: str, tem
     name = f" « {template.name} »" if template else ""
     if channel == MessageTemplate.Channel.EMAIL:
         student = dossier.student
-        transaction.on_commit(lambda: send_mail(
-            subject=subject.strip() or f"[{dossier.agency.name}] Votre dossier {dossier.reference}",
-            message=body, from_email=settings.DEFAULT_FROM_EMAIL, recipient_list=[student.email],
-            fail_silently=True,
-        ))
+        queue_email(subject.strip() or f"[{dossier.agency.name}] Votre dossier {dossier.reference}",
+                    body, [student.email])
         log_event(dossier, actor, DossierEvent.Kind.NOTE, f"Courriel envoyé à l'étudiant{name}.", visible_to_student=False)
     else:
         log_event(dossier, actor, DossierEvent.Kind.NOTE, f"Message WhatsApp préparé pour l'étudiant{name}.",

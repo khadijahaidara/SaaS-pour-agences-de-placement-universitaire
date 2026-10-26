@@ -9,13 +9,13 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.mail import send_mail
 from django.db.models import Q, Sum
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.formats import number_format
 
 from agencies.models import Agency
+from core.tasks import send_email
 
 from .models import DocumentRequest, Dossier, DossierEvent, ServiceFee
 from .services import notify
@@ -111,8 +111,8 @@ def send_daily_digest(now=None) -> dict:
                 + "\n".join(line for _, line in lines[:30])
                 + "\n\nOuvrez votre tableau de suivi pour les traiter.\n\n— NEURALIS Mobility")
         try:
-            send_mail(f"[{settings.SITE_NAME}] {len(lines)} dossier(s) à traiter aujourd'hui", body,
-                      settings.DEFAULT_FROM_EMAIL, [user.email], fail_silently=False)
+            send_email.delay(f"[{settings.SITE_NAME}] {len(lines)} dossier(s) à traiter aujourd'hui", body,
+                             [user.email])
             sent += 1
         except Exception:  # pragma: no cover - dépend du serveur SMTP
             logger.exception("Résumé quotidien non envoyé à %s", user.email)

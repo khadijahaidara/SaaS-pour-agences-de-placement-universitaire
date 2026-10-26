@@ -1,0 +1,14 @@
+{% extends "layouts/auth.html" %}{% load ui %}{% block title %}Vérification en deux étapes{% endblock %}
+{% block content %}
+<h1>Vérification</h1>
+<p class="lead">Saisissez le code à 6 chiffres affiché par votre application d'authentification pour <strong>{{ pending_email }}</strong>.</p>
+<form method="post" novalidate autocomplete="off">{% csrf_token %}
+  {% if error %}<div class="alert-box error">{% icon "alert" %}<div>{{ error }}</div></div>{% endif %}
+  <div class="field"><label for="id_code">Code de vérification</label>
+    <input class="input otp-input" id="id_code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="11" required autofocus placeholder="123456"></div>
+  <button class="btn block" type="submit">Vérifier et se connecter</button>
+</form>
+<details style="margin-top:1.2rem"><summary class="small" style="cursor:pointer">Téléphone perdu ?</summary>
+  <p class="small muted">Saisissez l'un de vos <strong>codes de secours</strong> (format <span class="code">abcde-12345</span>) dans le même champ. Sans code de secours, demandez au responsable de votre agence ou à NEURALIS de réinitialiser votre double authentification.</p></details>
+<p class="auth-switch"><a href="{% url 'accounts:login' %}">← Revenir à la connexion</a></p>
+{% endblock %}

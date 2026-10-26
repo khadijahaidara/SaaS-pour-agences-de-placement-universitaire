@@ -1,0 +1,39 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Sécurité de l'agence{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Équipe et sécurité</h1><p>Protégez l'accès aux dossiers et aux données de vos étudiants.</p></div></div>
+{% include "agencies/_team_tabs.html" %}
+<div class="stats">
+  <div class="stat tone-ok"><span class="ic-wrap">{% icon "shield" %}</span><div><div class="v">{{ protected }} / {{ members|length }}</div><div class="l">membres protégés par la 2FA</div></div></div>
+  <div class="stat"><span class="ic-wrap">{% icon "lock" %}</span><div><div class="v">{% if agency.require_2fa %}Obligatoire{% else %}Facultative{% endif %}</div><div class="l">double authentification</div></div></div>
+  <div class="stat"><span class="ic-wrap">{% icon "activity" %}</span><div><div class="v">5 essais</div><div class="l">avant blocage temporaire</div></div></div>
+</div>
+<div class="grid cols-main">
+<section class="panel">
+  <div class="panel-head"><h2>Politique de sécurité</h2>{% if not feature %}<span class="lock-note">{% icon "sparkle" "sm" %} Formule Pro</span>{% endif %}</div>
+  <form method="post" class="panel-body">{% csrf_token %}
+    <div class="toggle-row">
+      <div><div class="strong">Double authentification obligatoire</div><div class="small muted">Chaque membre de l'équipe devra saisir un code de son téléphone (Google Authenticator, Microsoft Authenticator…) à la connexion. Ceux qui ne l'ont pas encore activée y seront guidés à leur prochaine visite.</div></div>
+      <label class="switch"><input type="checkbox" name="require_2fa" {% if agency.require_2fa %}checked{% endif %} {% if not feature %}disabled{% endif %} aria-label="Double authentification obligatoire"><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div><div class="strong">Protection contre les essais de mot de passe</div><div class="small muted">Après 5 échecs, la connexion au compte est suspendue 15 minutes. Toujours actif.</div></div>
+      <span class="badge t-ok">Actif</span>
+    </div>
+    <div class="toggle-row">
+      <div><div class="strong">Pièces privées</div><div class="small muted">Les documents des étudiants ne sont jamais publics : chaque téléchargement est vérifié et tracé.</div></div>
+      <span class="badge t-ok">Actif</span>
+    </div>
+    {% if feature %}<div class="form-actions"><button class="btn" type="submit">Enregistrer</button></div>{% endif %}
+  </form>
+</section>
+<aside class="stack">
+  <section class="panel"><div class="panel-head"><h2>Membres</h2></div><div class="panel-body">
+    {% for m in members %}<div class="row between" style="padding:.4rem 0"><span class="small"><span class="status-dot {% if m.has_2fa %}ok{% else %}warn{% endif %}"></span>&nbsp; {{ m.get_full_name|default:m.email }}</span><span class="tiny muted">{% if m.has_2fa %}2FA active{% else %}sans 2FA{% endif %}</span></div>{% endfor %}
+  </div></section>
+  <section class="panel"><div class="panel-body small">
+    <p style="margin-top:0"><strong>Votre compte</strong> — {% if user.has_2fa %}protégé par la double authentification.{% else %}la double authentification n'est pas activée.{% endif %}</p>
+    <a class="btn ghost sm" href="{% url 'accounts:security' %}">{% icon "shield" "sm" %} Sécurité de mon compte</a>
+  </div></section>
+</aside>
+</div>
+{% endblock %}

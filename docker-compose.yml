@@ -1,3 +1,15 @@
+# Production locale / serveur unique : web + PostgreSQL + Redis + worker Celery + beat.
+x-app: &app
+  build: .
+  env_file: .env
+  environment:
+    DATABASE_URL: postgres://placement:placement@db:5432/placement
+    REDIS_URL: redis://redis:6379/0
+  volumes: [media:/data/media]
+  depends_on:
+    db: {condition: service_healthy}
+    redis: {condition: service_healthy}
+
 services:
   db:
     image: postgres:16
@@ -10,25 +22,32 @@ services:
       test: ["CMD-SHELL", "pg_isready -U placement"]
       interval: 5s
       retries: 10
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
   web:
-    build: .
-    env_file: .env
+    <<: *app
     environment:
       DATABASE_URL: postgres://placement:placement@db:5432/placement
+      REDIS_URL: redis://redis:6379/0
       DJANGO_SECURE_SSL_REDIRECT: "0"
     ports: ["8000:8000"]
-    volumes: [media:/data/media]
-    depends_on:
-      db: {condition: service_healthy}
-  scheduler:
-    build: .
-    env_file: .env
-    environment:
-      DATABASE_URL: postgres://placement:placement@db:5432/placement
-    command: ["sh", "-c", "while true; do python manage.py run_scheduled_tasks; sleep 3600; done"]
-    volumes: [media:/data/media]
-    depends_on:
-      db: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=5)"]
+      interval: 30s
+      retries: 3
+  worker:
+    <<: *app
+    command: ["celery", "-A", "config", "worker", "-l", "info", "--concurrency", "2"]
+  beat:
+    <<: *app
+    command: ["celery", "-A", "config", "beat", "-l", "info", "--schedule", "/tmp/celerybeat-schedule"]
 volumes:
   pgdata:
+  redisdata:
   media:

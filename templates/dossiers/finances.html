@@ -3,7 +3,7 @@
 {% with cur=user.agency.currency %}
 <div class="page-head">
   <div><h1>Finances</h1><p>Encaissements de vos frais de service{% if start %} du {{ start|date:"d/m/Y" }}{% endif %}{% if end %} au {{ end|date:"d/m/Y" }}{% endif %}.</p></div>
-  <a class="btn ghost" href="{% url 'dossiers:payments_export' %}?{{ querystring }}">{% icon "download" "sm" %} Exporter (Excel)</a>
+  {% if "payments.export" in agency_perms %}<a class="btn ghost" href="{% url 'dossiers:payments_export' %}?{{ querystring }}">{% icon "download" "sm" %} Exporter (Excel)</a>{% endif %}
 </div>
 
 <section class="panel" style="margin-bottom:1.1rem">
@@ -12,7 +12,7 @@
     <div class="field"><label for="id_start">Du</label>{{ form.start }}</div>
     <div class="field"><label for="id_end">Au</label>{{ form.end }}</div>
     <div class="field"><label for="id_method">Mode</label>{{ form.method }}</div>
-    {% if user.is_agency_admin %}<div class="field"><label for="id_counselor">Conseiller</label>{{ form.counselor }}</div>{% endif %}
+    {% if "dossiers.view_all" in agency_perms %}<div class="field"><label for="id_counselor">Conseiller</label>{{ form.counselor }}</div>{% endif %}
     <div class="row"><button class="btn ghost" type="submit">{% icon "filter" "sm" %} Appliquer</button></div>
   </form>
   <p class="tiny muted" style="padding:0 1.2rem 1rem;margin:0">Les dates « Du / Au » ne s'appliquent qu'à la période personnalisée.</p>

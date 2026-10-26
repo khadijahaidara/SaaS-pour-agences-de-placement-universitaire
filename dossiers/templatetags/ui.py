@@ -65,3 +65,16 @@ def pct(value, total):
         return round(float(value) * 100 / float(total)) if float(total) else 0
     except (TypeError, ValueError):
         return 0
+
+
+@register.filter
+def split_pairs(value: str):
+    """"a:A|b:B" → [("a", "A"), ("b", "B")] (petites listes de choix dans les gabarits)."""
+    return [tuple(part.split(":", 1)) for part in value.split("|") if ":" in part]
+
+
+@register.filter
+def pretty_json(value):
+    import json
+
+    return json.dumps(value, ensure_ascii=False, indent=2, default=str)

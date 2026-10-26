@@ -1,0 +1,33 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Journal d'audit{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Équipe et sécurité</h1><p>Toutes les actions sensibles de votre agence, horodatées et non modifiables.</p></div>
+{% if feature %}<a class="btn ghost" href="{% url 'audit:journal_export' %}?{{ querystring }}">{% icon "download" "sm" %} Exporter (Excel)</a>{% endif %}</div>
+{% include "agencies/_team_tabs.html" %}
+{% if not feature %}{% include "billing/_upsell.html" with title="Journal d'audit : formule Pro" text="Sachez qui a consulté une pièce, encaissé ou annulé un paiement, exporté des données ou changé un rôle — avec la date, l'heure et l'adresse IP." %}
+{% else %}
+<div class="kpi-mini">
+  <div class="stat"><span class="ic-wrap">{% icon "user" %}</span><div><div class="v">{{ stats.logins }}</div><div class="l">connexions (30 j)</div></div></div>
+  <div class="stat {% if stats.failed %}tone-ochre{% endif %}"><span class="ic-wrap">{% icon "alert" %}</span><div><div class="v">{{ stats.failed }}</div><div class="l">échecs de connexion</div></div></div>
+  <div class="stat"><span class="ic-wrap">{% icon "download" %}</span><div><div class="v">{{ stats.exports }}</div><div class="l">exports de données</div></div></div>
+  <div class="stat"><span class="ic-wrap">{% icon "file" %}</span><div><div class="v">{{ stats.downloads }}</div><div class="l">pièces consultées</div></div></div>
+</div>
+<form class="filters" method="get">
+  <select class="input" name="groupe" aria-label="Type d'action" data-autosubmit><option value="">Toutes les actions</option>{% for code, label in groups %}<option value="{{ code }}" {% if request.GET.groupe == code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  <select class="input" name="membre" aria-label="Membre" data-autosubmit><option value="">Tous les membres</option>{% for m in members %}<option value="{{ m.pk }}" {% if request.GET.membre == m.pk|stringformat:"s" %}selected{% endif %}>{{ m.get_full_name|default:m.email }}</option>{% endfor %}</select>
+  <select class="input" name="periode" aria-label="Période" data-autosubmit>{% for v, l in "1:Aujourd'hui|7:7 jours|30:30 jours|90:3 mois|365:12 mois"|split_pairs %}<option value="{{ v }}" {% if request.GET.periode|default:"30" == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+  <label class="check-row small"><input type="checkbox" name="sensibles" value="1" {% if request.GET.sensibles %}checked{% endif %} data-autosubmit> <span>Actions sensibles uniquement</span></label>
+</form>
+<section class="panel"><div class="table-wrap"><table class="data">
+  <thead><tr><th>Date</th><th>Membre</th><th>Action</th><th class="hide-sm">Détails</th><th class="hide-sm">Adresse IP</th></tr></thead>
+  <tbody>{% for log in page %}<tr>
+    <td class="small nowrap">{{ log.created_at|date:"d/m/Y" }}<br><span class="muted">{{ log.created_at|date:"H:i:s" }}</span></td>
+    <td class="small">{{ log.actor_label }}</td>
+    <td><span class="badge plain {% if log.is_sensitive %}t-ochre{% else %}t-muted{% endif %}">{{ log.label }}</span>{% if log.target_label %}<br><span class="tiny muted">{{ log.target_label|truncatechars:60 }}</span>{% endif %}</td>
+    <td class="hide-sm small muted">{{ log.details|truncatechars:90 }}</td>
+    <td class="hide-sm small code">{{ log.ip|default:"—" }}</td>
+  </tr>{% empty %}<tr><td colspan="5"><div class="empty">{% icon "activity" %}<h3>Aucune entrée</h3><p>Aucune action ne correspond à ces filtres.</p></div></td></tr>{% endfor %}</tbody>
+</table></div>
+{% if page.has_other_pages %}<div class="panel-body row between small"><span class="muted">Page {{ page.number }} / {{ page.paginator.num_pages }} · {{ page.paginator.count }} entrées</span><div class="row">{% if page.has_previous %}<a class="btn ghost sm" href="?{{ querystring }}&page={{ page.previous_page_number }}">Précédent</a>{% endif %}{% if page.has_next %}<a class="btn ghost sm" href="?{{ querystring }}&page={{ page.next_page_number }}">Suivant</a>{% endif %}</div></div>{% endif %}
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Webhook{% endblock %}
+{% block content %}
+<div class="page-head"><div><div class="crumbs"><a href="{% url 'integrations:webhooks' %}">Webhooks</a> {% icon "chevron-right" "sm" %}</div><h1>{% if instance.pk %}Modifier le webhook{% else %}Nouveau webhook{% endif %}</h1><p>Nous enverrons une requête POST (JSON) à cette adresse à chaque événement choisi.</p></div></div>
+<form method="post" class="panel" style="max-width:860px">{% csrf_token %}
+  <div class="panel-body">
+    {% if form.non_field_errors %}<div class="alert-box error">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+    <div class="form-grid">{% include "includes/field.html" with field=form.url span=1 %}{% include "includes/field.html" with field=form.description %}</div>
+    <h2 style="margin:1.2rem 0 .6rem;font-size:1rem">Événements</h2>
+    <p class="small muted" style="margin-top:0">{{ form.events.help_text }}</p>
+    <div class="perm-grid" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+      {% for choice in form.events %}<label class="check-row perm-group" style="margin:0">{{ choice.tag }} <span>{{ choice.choice_label }}<br><span class="tiny muted code">{{ choice.data.value }}</span></span></label>{% endfor %}
+    </div>
+    <div class="form-actions"><a class="btn ghost" href="{% if instance.pk %}{% url 'integrations:webhook_detail' instance.pk %}{% else %}{% url 'integrations:webhooks' %}{% endif %}">Annuler</a><button class="btn" type="submit">Enregistrer</button></div>
+  </div>
+</form>
+{% endblock %}

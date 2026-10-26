@@ -1,0 +1,41 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Importer des dossiers{% endblock %}
+{% block content %}
+<div class="page-head"><div><div class="crumbs"><a href="{% url 'dossiers:list' %}">Dossiers étudiants</a> {% icon "chevron-right" "sm" %}</div><h1>Importer des dossiers</h1><p>Reprenez votre fichier Excel existant : nous créons les dossiers, les comptes étudiants et les échéanciers.</p></div>
+<a class="btn ghost" href="{% url 'dossiers:import_template' %}">{% icon "download" "sm" %} Télécharger le modèle</a></div>
+
+{% if preview %}
+<div class="stats">
+  <div class="stat tone-ok"><span class="ic-wrap">{% icon "check" %}</span><div><div class="v">{{ valid_count }}</div><div class="l">ligne{{ valid_count|pluralize }} prête{{ valid_count|pluralize }}</div></div></div>
+  <div class="stat {% if error_count %}tone-ochre{% endif %}"><span class="ic-wrap">{% icon "alert" %}</span><div><div class="v">{{ error_count }}</div><div class="l">ligne{{ error_count|pluralize }} ignorée{{ error_count|pluralize }}</div></div></div>
+</div>
+<section class="panel">
+  <div class="panel-head"><h2>Aperçu</h2>
+    <form method="post" action="{% url 'dossiers:import_confirm' %}" class="row">{% csrf_token %}<a class="btn ghost sm" href="{% url 'dossiers:import' %}">Changer de fichier</a>{% if valid_count %}<button class="btn sm" type="submit">{% icon "check" "sm" %} Importer {{ valid_count }} dossier{{ valid_count|pluralize }}</button>{% endif %}</form></div>
+  <div class="table-wrap"><table class="data import-table">
+    <thead><tr><th>Ligne</th><th>Étudiant</th><th class="hide-sm">Parcours</th><th class="hide-sm">Conseiller</th><th>Contrôle</th></tr></thead>
+    <tbody>{% for r in preview %}<tr class="{% if r.errors %}bad{% endif %}">
+      <td class="small muted">{{ r.line }}</td>
+      <td><span class="strong">{{ r.prenom }} {{ r.nom }}</span><br><span class="tiny muted">{{ r.email }}{% if r.telephone %} · {{ r.telephone }}{% endif %}</span></td>
+      <td class="hide-sm small">{{ r.workflow_name|default:r.parcours }}</td>
+      <td class="hide-sm small">{{ r.counselor_name|default:"—" }}</td>
+      {% if r.errors %}<td class="err">{% icon "x" "sm" %} {{ r.errors|join:" · " }}</td>{% elif r.warnings %}<td class="warn">{% icon "alert" "sm" %} {{ r.warnings|join:" · " }}</td>{% else %}<td class="small" style="color:var(--ok)">{% icon "check" "sm" %} Prêt</td>{% endif %}
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% else %}
+<div class="grid cols-main">
+<form method="post" enctype="multipart/form-data" class="panel">{% csrf_token %}
+  <div class="panel-head"><h2>1. Déposez votre fichier</h2></div>
+  <div class="panel-body">
+    <label class="dropzone"><input type="file" name="file" accept=".csv,text/csv" required data-autosubmit><svg class="ic lg" aria-hidden="true"><use href="#i-upload"></use></svg><span><span class="fname" data-empty="Choisir un fichier CSV ou le glisser ici">Choisir un fichier CSV ou le glisser ici</span><br><span class="tiny muted">Excel : Fichier → Enregistrer sous → « CSV UTF-8 ». {{ max_rows }} lignes maximum.</span></span></label>
+    <p class="small muted">2. Vérifiez l'aperçu ligne par ligne. 3. Confirmez : rien n'est créé avant votre validation.</p>
+    <noscript><button class="btn" type="submit">Analyser le fichier</button></noscript>
+  </div>
+</form>
+<aside class="panel"><div class="panel-head"><h2>Colonnes reconnues</h2></div><div class="panel-body small">
+  {% for key, label, required in columns %}<div class="row between" style="padding:.22rem 0"><span>{{ label }}{% if required %} <span class="req" style="color:var(--danger)">*</span>{% endif %}</span><span class="code tiny">{{ key }}</span></div>{% endfor %}
+  <p class="muted" style="margin-bottom:0">« Parcours » : nom du parcours ou pays de destination (ex. France). Les accents et majuscules des en-têtes sont ignorés.</p>
+</div></aside>
+</div>
+{% endif %}
+{% endblock %}

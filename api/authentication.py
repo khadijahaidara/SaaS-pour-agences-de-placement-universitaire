@@ -26,6 +26,10 @@ class ApiKeyAuthentication(authentication.BaseAuthentication):
         user = key.created_by
         if not user.is_active or user.agency_id != key.agency_id:
             raise exceptions.AuthenticationFailed("Le compte qui a créé cette clé n'est plus actif.")
+        from billing.services import has_feature
+
+        if not has_feature(key.agency, "api"):
+            raise exceptions.PermissionDenied("L'API n'est pas incluse dans la formule de l'agence.")
         if key.last_used_at is None or (timezone.now() - key.last_used_at).total_seconds() > 60:
             ApiKey.objects.filter(pk=key.pk).update(last_used_at=timezone.now())
         return user, key

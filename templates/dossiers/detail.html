@@ -16,22 +16,22 @@
     </div>
   </div>
   <div class="row">
-    {% if message_templates %}<button class="btn ghost" type="button" data-open-modal="m-message">{% icon "message" "sm" %} Message</button>{% endif %}
-    {% if is_open and current_stage %}<button class="btn" type="button" data-open-modal="m-advance">{% icon "check" "sm" %} Terminer l'étape</button>{% endif %}
+    {% if message_templates and "messages.send" in agency_perms %}<button class="btn ghost" type="button" data-open-modal="m-message">{% icon "message" "sm" %} Message</button>{% endif %}
+    {% if is_open and current_stage and "dossiers.edit" in agency_perms %}<button class="btn" type="button" data-open-modal="m-advance">{% icon "check" "sm" %} Terminer l'étape</button>{% endif %}
     <details class="dd">
       <summary class="btn ghost">Actions {% icon "chevron-down" "sm" %}</summary>
       <div class="dd-menu">
         {% if is_open %}
-        <button class="dd-item" type="button" data-open-modal="m-request">{% icon "file" %} Demander une pièce</button>
-        <button class="dd-item" type="button" data-open-modal="m-payment">{% icon "cowrie" %} Enregistrer un paiement</button>
-        <button class="dd-item" type="button" data-open-modal="m-fee">{% icon "receipt" %} Ajouter des frais</button>
-        {% if offers %}<button class="dd-item" type="button" data-open-modal="m-offer">{% icon "cowrie" %} Appliquer une prestation</button>{% endif %}
-        {% if message_templates %}<button class="dd-item" type="button" data-open-modal="m-message">{% icon "message" %} Envoyer un message</button>{% endif %}
+        {% if "dossiers.edit" in agency_perms %}<button class="dd-item" type="button" data-open-modal="m-request">{% icon "file" %} Demander une pièce</button>{% endif %}
+        {% if "payments.record" in agency_perms %}<button class="dd-item" type="button" data-open-modal="m-payment">{% icon "cowrie" %} Enregistrer un paiement</button>
+        <button class="dd-item" type="button" data-open-modal="m-fee">{% icon "receipt" %} Ajouter des frais</button>{% endif %}
+        {% if offers and "payments.record" in agency_perms %}<button class="dd-item" type="button" data-open-modal="m-offer">{% icon "cowrie" %} Appliquer une prestation</button>{% endif %}
+        {% if message_templates and "messages.send" in agency_perms %}<button class="dd-item" type="button" data-open-modal="m-message">{% icon "message" %} Envoyer un message</button>{% endif %}
         <div class="dd-sep"></div>
         {% endif %}
-        <button class="dd-item" type="button" data-open-modal="m-status">{% icon "flag" %} Changer le statut</button>
-        {% if user.is_agency_admin %}<button class="dd-item" type="button" data-open-modal="m-assign">{% icon "users" %} Réaffecter le dossier</button>{% endif %}
-        <a class="dd-item" href="{% url 'dossiers:edit' dossier.pk %}">{% icon "pencil" %} Modifier les informations</a>
+        {% if "dossiers.change_status" in agency_perms %}<button class="dd-item" type="button" data-open-modal="m-status">{% icon "flag" %} Changer le statut</button>{% endif %}
+        {% if "dossiers.assign" in agency_perms %}<button class="dd-item" type="button" data-open-modal="m-assign">{% icon "users" %} Réaffecter le dossier</button>{% endif %}
+        {% if "dossiers.edit" in agency_perms %}<a class="dd-item" href="{% url 'dossiers:edit' dossier.pk %}">{% icon "pencil" %} Modifier les informations</a>{% endif %}
         {% if not student_activated %}<a class="dd-item" href="?invitation=1">{% icon "copy" %} Lien d'activation de l'étudiant</a>{% endif %}
       </div>
     </details>
@@ -67,7 +67,7 @@
             </div>
             {% if s.status == 'in_progress' and is_open %}
               {% with blocking=s.blocking_documents %}{% if blocking %}<div class="hint">{% icon "lock" "sm" %} À valider avant de continuer : {% for b in blocking %}{{ b.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}{% endwith %}
-              <div class="row" style="margin-top:.5rem"><button class="btn sm" type="button" data-open-modal="m-advance">Terminer l'étape</button><button class="btn subtle sm" type="button" data-open-modal="m-due">{% icon "calendar" "sm" %} Changer l'échéance</button></div>
+              {% if "dossiers.edit" in agency_perms %}<div class="row" style="margin-top:.5rem"><button class="btn sm" type="button" data-open-modal="m-advance">Terminer l'étape</button><button class="btn subtle sm" type="button" data-open-modal="m-due">{% icon "calendar" "sm" %} Changer l'échéance</button></div>{% endif %}
             {% endif %}
           </div>
         </li>
@@ -77,7 +77,7 @@
   </section>
 
   <section class="panel" id="pieces">
-    <div class="panel-head"><h2>Pièces du dossier</h2>{% if is_open %}<button class="btn ghost sm" type="button" data-open-modal="m-request">{% icon "plus" "sm" %} Demander une pièce</button>{% endif %}</div>
+    <div class="panel-head"><h2>Pièces du dossier</h2>{% if is_open and "dossiers.edit" in agency_perms %}<button class="btn ghost sm" type="button" data-open-modal="m-request">{% icon "plus" "sm" %} Demander une pièce</button>{% endif %}</div>
     <div class="panel-body flush">
     {% for doc in documents %}
       <div class="doc st-{{ doc.status }}">
@@ -90,11 +90,11 @@
         </div>
         <div class="doc-actions">
           {% include "includes/badge.html" with value=doc.status label=doc.get_status_display %}
-          {% if is_open and doc.status == 'submitted' %}
+          {% if is_open and doc.status == 'submitted' and "documents.review" in agency_perms %}
             <form method="post" action="{% url 'dossiers:review_document' dossier.pk doc.pk %}">{% csrf_token %}<input type="hidden" name="decision" value="approve"><button class="btn ok sm" type="submit">{% icon "check" "sm" %} Valider</button></form>
             <button class="btn ghost sm" type="button" data-open-modal="m-reject-{{ doc.pk }}">Retourner</button>
           {% endif %}
-          {% if is_open and doc.status != 'approved' %}<button class="btn subtle sm" type="button" data-open-modal="m-upload-{{ doc.pk }}" title="Déposer pour l'étudiant">{% icon "upload" "sm" %}</button>{% endif %}
+          {% if is_open and doc.status != 'approved' and "dossiers.edit" in agency_perms %}<button class="btn subtle sm" type="button" data-open-modal="m-upload-{{ doc.pk }}" title="Déposer pour l'étudiant">{% icon "upload" "sm" %}</button>{% endif %}
         </div>
       </div>
       {% if is_open %}
@@ -122,7 +122,7 @@
 
   <section class="panel" id="paiements">
     <div class="panel-head"><h2>Frais de service et paiements</h2>
-      {% if is_open %}<div class="row"><button class="btn ghost sm" type="button" data-open-modal="m-fee">{% icon "plus" "sm" %} Frais</button><button class="btn sm" type="button" data-open-modal="m-payment">{% icon "cowrie" "sm" %} Paiement</button></div>{% endif %}</div>
+      {% if is_open and "payments.record" in agency_perms %}<div class="row"><button class="btn ghost sm" type="button" data-open-modal="m-fee">{% icon "plus" "sm" %} Frais</button><button class="btn sm" type="button" data-open-modal="m-payment">{% icon "cowrie" "sm" %} Paiement</button></div>{% endif %}</div>
     <div class="panel-body">
       <div class="stats" style="margin-bottom:1rem">
         <div class="stat"><div><div class="v" style="font-size:1.2rem">{{ dossier.total_fees|money:cur }}</div><div class="l">Total des frais</div></div></div>
@@ -140,7 +140,7 @@
           <td><a href="{% url 'dossiers:receipt' p.pk %}" target="_blank">Reçu {{ p.receipt_number }}</a>{% if p.is_cancelled %}<br><span class="tiny" style="color:var(--danger)">Annulé : {{ p.cancellation_reason }}</span>{% endif %}</td>
           <td class="hide-sm small">{{ p.get_method_display }}{% if p.reference %}<br><span class="muted tiny">{{ p.reference }}</span>{% endif %}</td>
           <td class="num" style="color:var(--ok);font-weight:700">−{{ p.amount|money }}</td>
-          <td>{% if user.is_agency_admin and not p.is_cancelled %}
+          <td>{% if "payments.cancel" in agency_perms and not p.is_cancelled %}
             <details class="dd"><summary class="icon-btn" aria-label="Plus d'actions">{% icon "more" %}</summary><div class="dd-menu">
               <a class="dd-item" href="{% url 'dossiers:receipt' p.pk %}" target="_blank">{% icon "receipt" %} Voir le reçu</a>
               <button class="dd-item danger" type="button" data-open-modal="m-cancel-{{ p.pk }}">{% icon "x" %} Annuler le paiement</button></div></details>
@@ -200,7 +200,7 @@
   <form class="modal-body" method="post" action="{% url 'dossiers:advance_stage' dossier.pk %}">{% csrf_token %}
     {% with blocking=current_stage.blocking_documents %}{% if blocking %}<div class="alert-box ochre">{% icon "lock" %}<div>Pièces obligatoires non validées : {% for b in blocking %}{{ b.name }}{% if not forloop.last %}, {% endif %}{% endfor %}.</div></div>{% endif %}{% endwith %}
     {% include "includes/field.html" with field=forms.advance.next_due_date %}
-    {% if user.is_agency_admin %}{% include "includes/field.html" with field=forms.advance.force %}{% endif %}
+    {% if "dossiers.force_advance" in agency_perms %}{% include "includes/field.html" with field=forms.advance.force %}{% endif %}
     <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">{% icon "check" "sm" %} Terminer l'étape</button></div>
   </form>
 </dialog>
@@ -242,7 +242,7 @@
     <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">Changer le statut</button></div>
   </form>
 </dialog>
-{% if user.is_agency_admin %}
+{% if "dossiers.assign" in agency_perms %}
 <dialog class="modal" id="m-assign">
   <div class="modal-head"><div><h2>Réaffecter le dossier</h2><p>Le nouveau conseiller est prévenu.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
   <form class="modal-body" method="post" action="{% url 'dossiers:assign' dossier.pk %}">{% csrf_token %}

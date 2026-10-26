@@ -3,12 +3,14 @@ from django.urls import include, path
 from django.views.generic import TemplateView
 
 from accounts.views import home
+from core.views import health
 from agencies.views import agency_logo, signup
 
 admin.site.site_header = "NEURALIS Mobility — administration technique"
 
 urlpatterns = [
     path("", home, name="home"),
+    path("health/", health, name="health"),
     path("inscription/", signup, name="signup"),
     path("logo/<slug:slug>/", agency_logo, name="agency_logo"),
     path("conditions/", TemplateView.as_view(template_name="legal/terms.html"), name="terms"),
@@ -16,6 +18,9 @@ urlpatterns = [
     path("compte/", include("accounts.urls")),
     path("agence/", include("dossiers.urls")),
     path("agence/parametres/", include("agencies.urls")),
+    path("agence/abonnement/", include("billing.urls")),
+    path("agence/integrations/", include("integrations.urls")),
+    path("agence/securite/", include("audit.urls")),
     path("etudiant/", include("portal.urls")),
     path("console/", include("console.urls")),
     path("api/", include("api.urls")),

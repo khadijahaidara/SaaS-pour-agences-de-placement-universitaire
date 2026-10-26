@@ -34,7 +34,9 @@ from agencies import customization as custom
 from agencies.models import MessageTemplate, ServiceOffer
 
 from .models import DocumentFile, DocumentRequest, Dossier, DossierEvent, DossierStage, Notification, Payment, ServiceFee
-from .permissions import agency_staff_required, get_dossier_for
+from audit.services import record as audit
+
+from .permissions import agency_perm_required, agency_staff_required, get_dossier_for
 from .services import BusinessRuleError
 
 
@@ -59,7 +61,7 @@ DONUT_COLORS = ["#1f4fb8", "#c98a2b", "#5b8def", "#9c3f1c", "#2f7d4f", "#6b7389"
 def dashboard(request):
     user = request.user
     agency = user.agency
-    scope = request.GET.get("scope", "all" if user.is_agency_admin else "mine")
+    scope = request.GET.get("scope", "all" if user.has_agency_perm("dossiers.view_all") else "mine")
     base = Dossier.objects.for_user(user)
     if scope == "mine":
         base = base.filter(counselor=user)
@@ -185,7 +187,7 @@ def _csv_safe(value):
     return "'" + text if text[:1] in ("=", "+", "-", "@") and not text.lstrip("-").replace(" ", "").isdigit() else text
 
 
-@agency_staff_required
+@agency_perm_required("dossiers.export")
 def dossiers_export(request):
     _, qs = _filtered_dossiers(request)
     extra = custom.active_fields(request.user.agency)
@@ -203,6 +205,7 @@ def dossiers_export(request):
     header = ["Référence", "Nom", "Prénom", "Courriel", "Téléphone", "Pays", "Ville", "Établissement", "Programme",
               "Rentrée", "Statut", "Étape en cours", "Échéance", "Conseiller", "Frais", "Payé", "Solde", "Ouvert le",
               *[cf.label for cf in extra]]
+    audit("dossier.exported", metadata={"lignes": len(rows)})
     return _csv_response(f"dossiers-{timezone.localdate():%Y%m%d}.csv", header, rows)
 
 
@@ -241,7 +244,7 @@ def _filtered_payments(request):
     return form, qs, start, end
 
 
-@agency_staff_required
+@agency_perm_required("payments.view")
 def finances(request):
     form, qs, start, end = _filtered_payments(request)
     valid = qs.filter(cancelled_at__isnull=True)
@@ -271,7 +274,7 @@ def finances(request):
     })
 
 
-@agency_staff_required
+@agency_perm_required("payments.export")
 def payments_export(request):
     _, qs, start, end = _filtered_payments(request)
     rows = [[
@@ -280,10 +283,11 @@ def payments_export(request):
         "Annulé" if p.is_cancelled else "Valide", p.cancellation_reason,
     ] for p in qs]
     header = ["Reçu", "Date", "Dossier", "Étudiant", "Montant", "Mode", "Référence", "Enregistré par", "État", "Motif d'annulation"]
+    audit("payment.exported", metadata={"lignes": len(rows)})
     return _csv_response(f"paiements-{timezone.localdate():%Y%m%d}.csv", header, rows)
 
 
-@agency_staff_required
+@agency_perm_required("dossiers.create")
 def dossier_create(request):
     agency = request.user.agency
     if not agency.is_operational:
@@ -291,13 +295,13 @@ def dossier_create(request):
                                 "mais la création de nouveaux dossiers nécessite un abonnement actif.")
         return redirect("dossiers:list")
     form = DossierCreateForm(request.POST or None, agency=agency,
-                             initial={"counselor": request.user if not request.user.is_agency_admin else None})
+                             initial={"counselor": request.user if not request.user.has_agency_perm("dossiers.assign") else None})
     custom_names = custom.add_custom_fields(form, agency)
     if request.method == "POST" and form.is_valid():
         cd = form.cleaned_data
         counselor = cd["counselor"]
-        if not request.user.is_agency_admin:
-            # Un conseiller ne crée que des dossiers qu'il suit lui-même.
+        if not request.user.has_agency_perm("dossiers.assign"):
+            # Sans droit de réaffectation, on ne crée que des dossiers qu'on suit soi-même.
             counselor = request.user
         try:
             dossier, created = services.create_dossier(
@@ -367,7 +371,7 @@ def dossier_detail(request, pk):
     })
 
 
-@agency_staff_required
+@agency_perm_required("dossiers.edit")
 def dossier_edit(request, pk):
     dossier = get_dossier_for(request.user, pk)
     form = DossierEditForm(request.POST or None, instance=dossier)
@@ -385,7 +389,7 @@ def dossier_edit(request, pk):
 
 
 @require_POST
-@agency_staff_required
+@agency_perm_required("payments.record")
 def apply_offer(request, pk):
     dossier = get_dossier_for(request.user, pk)
     offer = get_object_or_404(ServiceOffer, pk=request.POST.get("offer"), agency=dossier.agency)
@@ -394,7 +398,7 @@ def apply_offer(request, pk):
 
 
 @require_POST
-@agency_staff_required
+@agency_perm_required("messages.send")
 def send_message(request, pk):
     """Envoie le message par courriel, ou trace l'envoi puis ouvre WhatsApp."""
     dossier = get_dossier_for(request.user, pk)
@@ -427,7 +431,7 @@ def _run(request, dossier, fn, success, anchor=""):
 
 
 @require_POST
-@agency_staff_required
+@agency_perm_required("dossiers.edit")
 def advance_stage(request, pk):
     dossier = get_dossier_for(request.user, pk)
     form = AdvanceStageForm(request.POST)
@@ -440,7 +444,7 @@ def advance_stage(request, pk):
 
 
 @require_POST
-@agency_staff_required
+@agency_perm_required("dossiers.edit")
 def stage_due_date(request, pk, stage_id):
     dossier = get_dossier_for(request.user, pk)
     stage = get_object_or_404(dossier.stages, pk=stage_id)
@@ -453,7 +457,7 @@ def stage_due_date(request, pk, stage_id):
 
 
 @require_POST
-@agency_staff_required
+@agency_perm_required("dossiers.change_status")
 def set_status(request, pk):
     dossier = get_dossier_for(request.user, pk)
     form = StatusForm(request.POST)
@@ -465,11 +469,8 @@ def set_status(request, pk):
 
 
 @require_POST
-@agency_staff_required
+@agency_perm_required("dossiers.assign")
 def assign(request, pk):
-    if not request.user.is_agency_admin:
-        messages.error(request, "Seul le responsable d'agence peut réaffecter un dossier.")
-        return redirect("dossiers:detail", pk=pk)
     dossier = get_dossier_for(request.user, pk)
     form = AssignForm(request.POST, agency=dossier.agency)
     if not form.is_valid():
@@ -480,7 +481,7 @@ def assign(request, pk):
 
 
 @require_POST
-@agency_staff_required
+@agency_perm_required("dossiers.edit")
 def request_document(request, pk):
     dossier = get_dossier_for(request.user, pk)
     form = DocumentRequestForm(request.POST, dossier=dossier)
@@ -494,7 +495,7 @@ def request_document(request, pk):
 
 
 @require_POST
-@agency_staff_required
+@agency_perm_required("documents.review")
 def review_document(request, pk, doc_id):
     dossier = get_dossier_for(request.user, pk)
     doc = get_object_or_404(dossier.document_requests, pk=doc_id)
@@ -509,7 +510,7 @@ def review_document(request, pk, doc_id):
 
 
 @require_POST
-@agency_staff_required
+@agency_perm_required("dossiers.edit")
 def upload_document(request, pk, doc_id):
     """Le conseiller peut déposer une pièce reçue par WhatsApp ou au guichet."""
     dossier = get_dossier_for(request.user, pk)
@@ -523,7 +524,7 @@ def upload_document(request, pk, doc_id):
 
 
 @require_POST
-@agency_staff_required
+@agency_perm_required("payments.record")
 def add_fee(request, pk):
     dossier = get_dossier_for(request.user, pk)
     form = FeeForm(request.POST)
@@ -537,7 +538,7 @@ def add_fee(request, pk):
 
 
 @require_POST
-@agency_staff_required
+@agency_perm_required("payments.record")
 def record_payment(request, pk):
     dossier = get_dossier_for(request.user, pk)
     form = PaymentForm(request.POST)
@@ -551,7 +552,7 @@ def record_payment(request, pk):
 
 
 @require_POST
-@agency_staff_required
+@agency_perm_required("payments.cancel")
 def cancel_payment(request, pk, payment_id):
     dossier = get_dossier_for(request.user, pk)
     payment = get_object_or_404(dossier.payments, pk=payment_id)
@@ -578,6 +579,9 @@ def document_download(request, file_id):
                             as_attachment=request.GET.get("download") == "1", filename=f.original_name)
     response["Cache-Control"] = "private, no-store"
     response["X-Content-Type-Options"] = "nosniff"
+    if not request.user.is_student:
+        audit("document.downloaded", target=f.request.dossier, metadata={"piece": f.request.name,
+                                                                         "fichier": f.original_name[:80]})
     return response
 
 
@@ -612,3 +616,71 @@ def notification_open(request, notif_id):
 def notifications_mark_all(request):
     request.user.notifications.filter(is_read=False).update(is_read=True)
     return redirect("dossiers:notifications")
+
+
+# --------------------------------------------------------------------------- #
+# Import CSV
+# --------------------------------------------------------------------------- #
+IMPORT_SESSION_KEY = "dossier_import_preview"
+
+
+@agency_perm_required("dossiers.import", "dossiers.create")
+def dossier_import(request):
+    from . import importer
+
+    agency = request.user.agency
+    preview = None
+    if request.method == "POST" and request.FILES.get("file"):
+        try:
+            if not agency.is_operational:
+                raise BusinessRuleError("Abonnement inactif : import impossible.")
+            rows = importer.validate(importer.parse(request.FILES["file"]), agency=agency, actor=request.user)
+        except BusinessRuleError as e:
+            messages.error(request, str(e))
+        else:
+            request.session[IMPORT_SESSION_KEY] = rows
+            preview = rows
+    elif request.GET.get("apercu") and request.session.get(IMPORT_SESSION_KEY):
+        preview = request.session[IMPORT_SESSION_KEY]
+    ctx = {"preview": preview, "columns": importer.COLUMNS, "max_rows": importer.MAX_ROWS}
+    if preview is not None:
+        ctx["valid_count"] = sum(1 for r in preview if not r["errors"])
+        ctx["error_count"] = len(preview) - ctx["valid_count"]
+    return render(request, "dossiers/import.html", ctx)
+
+
+@require_POST
+@agency_perm_required("dossiers.import", "dossiers.create")
+def dossier_import_confirm(request):
+    from . import importer
+
+    rows = request.session.pop(IMPORT_SESSION_KEY, None)
+    if not rows:
+        messages.error(request, "Aperçu expiré : déposez à nouveau le fichier.")
+        return redirect("dossiers:import")
+    agency = request.user.agency
+    # On revalide : la situation a pu changer depuis l'aperçu (quota, comptes créés…).
+    columns = {key for key, _, _ in importer.COLUMNS} | {"line"}
+    rows = importer.validate([{k: v for k, v in r.items() if k in columns} for r in rows],
+                             agency=agency, actor=request.user)
+    result = importer.run_import(rows, agency=agency, actor=request.user)
+    audit("dossier.imported", metadata={"crees": result["created"], "comptes": result["accounts"],
+                                        "erreurs": len(result["failed"]) + sum(1 for r in rows if r["errors"])})
+    if result["created"]:
+        messages.success(request, f"{result['created']} dossier(s) importé(s), {result['accounts']} compte(s) étudiant créé(s). "
+                                  "Envoyez-leur leur lien d'activation depuis chaque dossier.")
+    skipped = sum(1 for r in rows if r["errors"]) + len(result["failed"])
+    if skipped:
+        messages.warning(request, f"{skipped} ligne(s) ignorée(s) à cause d'erreurs.")
+    return redirect("dossiers:list")
+
+
+@agency_perm_required("dossiers.import")
+def dossier_import_template(request):
+    from django.http import HttpResponse
+
+    from .importer import template_csv
+
+    response = HttpResponse(template_csv(), content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="modele-import-dossiers.csv"'
+    return response

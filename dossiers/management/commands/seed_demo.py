@@ -67,6 +67,15 @@ class Command(BaseCommand):
 
         c1 = mk("conseiller@demo.ml", "Moussa", "Diarra", User.Role.COUNSELOR, "+223 70 00 00 01")
         c2 = mk("conseillere@demo.ml", "Awa", "Coulibaly", User.Role.COUNSELOR, "+223 70 00 00 02")
+        from accounts.models import Role
+
+        c1.agency_role = Role.objects.get(agency=agency, key="counselor")
+        c1.save(update_fields=["agency_role"])
+        c2.agency_role = Role.objects.get(agency=agency, key="supervisor")
+        c2.save(update_fields=["agency_role"])
+        cashier = mk("caisse@demo.ml", "Fatoumata", "Keïta", User.Role.COUNSELOR, "+223 70 00 00 03")
+        cashier.agency_role = Role.objects.get(agency=agency, key="cashier")
+        cashier.save(update_fields=["agency_role"])
 
         france = WorkflowTemplate.objects.get(agency=agency, name__startswith="France")
         canada = WorkflowTemplate.objects.get(agency=agency, name__startswith="Canada")

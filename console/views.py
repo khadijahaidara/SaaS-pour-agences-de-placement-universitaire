@@ -59,14 +59,15 @@ def dashboard(request):
     p1_new = Prospect.objects.filter(priority="P1", status="new")[:10]
     expiring = Agency.objects.filter(plan=Agency.Plan.TRIAL, trial_ends_at__lte=soon, trial_ends_at__gt=timezone.now())
     recent = Agency.objects.order_by("-created_at")[:6]
-    from dossiers.tasks import TASK_LABELS, TASKS
+    from core.scheduler import labels, registry
 
     from .models import TaskRun
 
-    task_runs = [TaskRun.objects.filter(name=n).first() for n in TASKS]
+    task_labels = labels()
+    task_runs = [TaskRun.objects.filter(name=n).first() for n in registry()]
     task_runs = [t for t in task_runs if t]
     for t in task_runs:
-        t.label = TASK_LABELS.get(t.name, t.name)
+        t.label = task_labels.get(t.name, t.name)
     return render(request, "console/dashboard.html", {
         "stats": stats, "pipeline": pipeline, "due": due, "p1_new": p1_new, "expiring": expiring, "recent": recent, "task_runs": task_runs,
     })
@@ -229,10 +230,14 @@ def prospect_import(request):
 
 @platform_admin_required
 def agency_list(request):
+    from billing.models import Plan, Subscription
+
     agencies = (Agency.objects.annotate(n_dossiers=Count("dossiers", distinct=True),
                                         n_users=Count("users", filter=Q(users__role__in=["agency_admin", "counselor"]), distinct=True))
-                .order_by("-created_at"))
-    return render(request, "console/agency_list.html", {"agencies": agencies, "plan_actions": AgencyPlanForm.ACTIONS})
+                .select_related("subscription__plan").order_by("-created_at"))
+    return render(request, "console/agency_list.html", {
+        "agencies": agencies, "plan_actions": AgencyPlanForm.ACTIONS, "plans": Plan.objects.all(),
+        "cycles": Subscription.Cycle.choices})
 
 
 @require_POST
@@ -267,4 +272,121 @@ def agency_plan(request, pk):
             agency.trial_ends_at = timezone.now() + timedelta(days=7)
     agency.save()
     messages.success(request, f"{agency.name} : {dict(AgencyPlanForm.ACTIONS)[action].lower()} — fait.")
+    return redirect("console:agencies")
+
+
+# --------------------------------------------------------------------------- #
+# Facturation des agences
+# --------------------------------------------------------------------------- #
+@platform_admin_required
+def billing(request):
+    from billing.models import Invoice, Plan, PlanChangeRequest, Subscription
+    from django.db.models import Sum
+
+    status = request.GET.get("statut", "")
+    invoices = Invoice.objects.select_related("agency", "plan")
+    if status in Invoice.Status.values:
+        invoices = invoices.filter(status=status)
+    page = Paginator(invoices, 30).get_page(request.GET.get("page"))
+    active_subs = Subscription.objects.filter(agency__plan=Agency.Plan.ACTIVE, agency__is_active=True).select_related("plan")
+    mrr = sum(int(s.plan.price_yearly / 12) if s.cycle == "yearly" else int(s.plan.price_monthly) for s in active_subs)
+    today = timezone.localdate()
+    stats = {
+        "mrr": mrr, "arr": mrr * 12, "active": active_subs.count(),
+        "due": Invoice.objects.filter(status=Invoice.Status.ISSUED).aggregate(s=Sum("amount"))["s"] or 0,
+        "overdue": Invoice.objects.filter(status=Invoice.Status.ISSUED, due_on__lt=today).count(),
+        "collected_month": Invoice.objects.filter(status=Invoice.Status.PAID, paid_on__gte=today.replace(day=1))
+        .aggregate(s=Sum("amount"))["s"] or 0,
+    }
+    by_plan = list(active_subs.values("plan__name").annotate(n=Count("id")).order_by("-n"))
+    return render(request, "console/billing.html", {
+        "page": page, "status": status, "statuses": Invoice.Status.choices, "stats": stats, "by_plan": by_plan,
+        "requests": PlanChangeRequest.objects.filter(status=PlanChangeRequest.Status.PENDING)
+        .select_related("agency", "plan", "requested_by"),
+        "agencies": Agency.objects.filter(is_active=True).order_by("name"), "plans": Plan.objects.all(),
+        "cycles": Subscription.Cycle.choices, "methods": Invoice.Method.choices, "today": today,
+    })
+
+
+@require_POST
+@platform_admin_required
+def invoice_create(request):
+    from billing.models import Plan, PlanChangeRequest, Subscription
+    from billing.services import issue_invoice
+
+    agency = get_object_or_404(Agency, pk=request.POST.get("agency"))
+    plan = get_object_or_404(Plan, pk=request.POST.get("plan"))
+    cycle = request.POST.get("cycle") if request.POST.get("cycle") in Subscription.Cycle.values else "monthly"
+    invoice = issue_invoice(agency, plan=plan, cycle=cycle, actor=request.user, notes=request.POST.get("notes", "")[:255])
+    if request.POST.get("request"):
+        PlanChangeRequest.objects.filter(pk=request.POST["request"], agency=agency).update(
+            status=PlanChangeRequest.Status.DONE, handled_at=timezone.now())
+    messages.success(request, f"Facture {invoice.number} émise pour {agency.name}. L'agence a été notifiée.")
+    return redirect("console:billing")
+
+
+@require_POST
+@platform_admin_required
+def invoice_paid(request, pk):
+    from billing.models import Invoice
+    from billing.services import mark_paid
+    from dossiers.services import BusinessRuleError
+
+    invoice = get_object_or_404(Invoice, pk=pk)
+    method = request.POST.get("method") if request.POST.get("method") in Invoice.Method.values else Invoice.Method.OTHER
+    try:
+        paid_on = timezone.datetime.strptime(request.POST.get("paid_on", ""), "%Y-%m-%d").date()
+    except ValueError:
+        paid_on = None
+    try:
+        mark_paid(invoice, actor=request.user, method=method, reference=request.POST.get("reference", "")[:100],
+                  paid_on=paid_on)
+    except BusinessRuleError as e:
+        messages.error(request, str(e))
+    else:
+        prospect = getattr(invoice.agency, "prospect", None)
+        if prospect and prospect.status != Prospect.Status.WON:
+            prospect.status = Prospect.Status.WON
+            prospect.save(update_fields=["status", "updated_at"])
+            ProspectActivity.objects.create(prospect=prospect, kind="status", author=request.user,
+                                            summary=f"Facture {invoice.number} payée — client gagné.")
+        messages.success(request, f"Facture {invoice.number} payée : {invoice.agency.name} est active.")
+    return redirect("console:billing")
+
+
+@require_POST
+@platform_admin_required
+def invoice_void(request, pk):
+    from billing.models import Invoice
+    from billing.services import void_invoice
+    from dossiers.services import BusinessRuleError
+
+    try:
+        void_invoice(get_object_or_404(Invoice, pk=pk), actor=request.user, reason=request.POST.get("reason", ""))
+    except BusinessRuleError as e:
+        messages.error(request, str(e))
+    else:
+        messages.success(request, "Facture annulée.")
+    return redirect("console:billing")
+
+
+@platform_admin_required
+def invoice_pdf(request, pk):
+    from billing.models import Invoice
+    from billing.views import pdf_response
+
+    return pdf_response(get_object_or_404(Invoice.objects.select_related("agency", "plan"), pk=pk))
+
+
+@require_POST
+@platform_admin_required
+def agency_tier(request, pk):
+    from billing.models import Plan, Subscription
+    from billing.services import change_plan
+
+    agency = get_object_or_404(Agency, pk=pk)
+    plan = get_object_or_404(Plan, pk=request.POST.get("plan"))
+    cycle = request.POST.get("cycle") if request.POST.get("cycle") in Subscription.Cycle.values else "monthly"
+    change_plan(agency, plan=plan, cycle=cycle, actor=request.user)
+    messages.success(request, f"{agency.name} passe en formule {plan.name}.")
     return redirect("console:agencies")

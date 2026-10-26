@@ -1,0 +1,56 @@
+{% extends "layouts/app.html" %}{% load ui humanize %}{% block title %}Facturation{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Facturation</h1><p>Revenus récurrents, demandes de changement de formule et factures des agences.</p></div>
+<button class="btn" type="button" data-open-modal="m-invoice">{% icon "plus" "sm" %} Nouvelle facture</button></div>
+<div class="stats">
+  <div class="stat tone-ok"><span class="ic-wrap">{% icon "activity" %}</span><div><div class="v">{{ stats.mrr|money:"" }}</div><div class="l">MRR (FCFA / mois)</div></div></div>
+  <div class="stat"><span class="ic-wrap">{% icon "card" %}</span><div><div class="v">{{ stats.arr|money:"" }}</div><div class="l">ARR (FCFA / an)</div></div></div>
+  <div class="stat"><span class="ic-wrap">{% icon "building" %}</span><div><div class="v">{{ stats.active }}</div><div class="l">agences abonnées</div></div></div>
+  <div class="stat {% if stats.overdue %}tone-ochre{% endif %}"><span class="ic-wrap">{% icon "receipt" %}</span><div><div class="v">{{ stats.due|money:"" }}</div><div class="l">à encaisser · {{ stats.overdue }} en retard</div></div></div>
+  <div class="stat"><span class="ic-wrap">{% icon "cowrie" %}</span><div><div class="v">{{ stats.collected_month|money:"" }}</div><div class="l">encaissé ce mois</div></div></div>
+</div>
+{% if requests %}
+<section class="panel" style="margin-bottom:1.1rem;border-color:var(--river)">
+  <div class="panel-head"><h2>Demandes à traiter</h2><span class="badge t-river">{{ requests|length }}</span></div>
+  <div class="table-wrap"><table class="data"><tbody>{% for r in requests %}<tr>
+    <td><span class="strong">{{ r.agency.name }}</span><br><span class="tiny muted">par {{ r.requested_by|default:"—" }} · {{ r.created_at|date:"d/m/Y H:i" }}{% if r.message %} · « {{ r.message }} »{% endif %}</span></td>
+    <td>Formule <strong>{{ r.plan.name }}</strong> · {{ r.get_cycle_display|lower }}</td>
+    <td class="num"><form method="post" action="{% url 'console:invoice_create' %}">{% csrf_token %}<input type="hidden" name="agency" value="{{ r.agency_id }}"><input type="hidden" name="plan" value="{{ r.plan_id }}"><input type="hidden" name="cycle" value="{{ r.cycle }}"><input type="hidden" name="request" value="{{ r.pk }}"><button class="btn sm" type="submit">{% icon "receipt" "sm" %} Émettre la facture</button></form></td>
+  </tr>{% endfor %}</tbody></table></div>
+</section>
+{% endif %}
+<section class="panel">
+  <div class="panel-head"><h2>Factures</h2>
+    <nav class="tabs" style="margin:0;border:0"><a href="?" class="{% if not status %}active{% endif %}">Toutes</a>{% for v, l in statuses %}<a href="?statut={{ v }}" class="{% if status == v %}active{% endif %}">{{ l }}</a>{% endfor %}</nav></div>
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th>Numéro</th><th>Agence</th><th>Montant</th><th>État</th><th class="hide-sm">Échéance</th><th></th></tr></thead>
+    <tbody>{% for inv in page %}<tr>
+      <td class="strong">{{ inv.number }}<br><span class="tiny muted" style="font-weight:400">{{ inv.plan.name }} · {{ inv.period_start|date:"d/m/y" }} → {{ inv.period_end|date:"d/m/y" }}</span></td>
+      <td>{{ inv.agency.name }}</td>
+      <td class="money">{{ inv.amount|money:"FCFA" }}</td>
+      <td>{% if inv.status == "paid" %}<span class="badge t-ok">Payée {{ inv.paid_on|date:"d/m" }}</span>{% elif inv.status == "void" %}<span class="badge t-muted">Annulée</span>{% elif inv.is_overdue %}<span class="badge t-danger">En retard</span>{% else %}<span class="badge t-ochre">À payer</span>{% endif %}</td>
+      <td class="hide-sm small">{{ inv.due_on|date:"d/m/Y" }}</td>
+      <td class="num"><details class="dd"><summary class="icon-btn" aria-label="Actions">{% icon "more" %}</summary><div class="dd-menu">
+        <a class="dd-item" href="{% url 'console:invoice_pdf' inv.pk %}" target="_blank">{% icon "download" %} PDF</a>
+        {% if inv.status == "issued" %}<button class="dd-item" type="button" data-open-modal="m-paid-{{ inv.pk }}">{% icon "check" %} Marquer payée</button>
+        <form method="post" action="{% url 'console:invoice_void' inv.pk %}">{% csrf_token %}<button class="dd-item danger" type="submit">{% icon "x" %} Annuler</button></form>{% endif %}
+      </div></details>
+      {% if inv.status == "issued" %}
+      <dialog class="modal" id="m-paid-{{ inv.pk }}"><div class="modal-head"><div><h2>Paiement de {{ inv.number }}</h2><p>{{ inv.agency.name }} · {{ inv.amount|money:"FCFA" }}. L'abonnement sera activé jusqu'au {{ inv.period_end|date:"d/m/Y" }}.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+        <form class="modal-body" method="post" action="{% url 'console:invoice_paid' inv.pk %}">{% csrf_token %}<div class="form-grid">
+          <div class="field"><label>Mode de paiement</label><select class="input" name="method">{% for v, l in methods %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+          <div class="field"><label>Date</label><input class="input" type="date" name="paid_on" value="{{ today|date:'Y-m-d' }}"></div>
+          <div class="field span-2"><label>Référence (transaction, virement)</label><input class="input" name="reference" maxlength="100"></div></div>
+          <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">Confirmer le paiement</button></div></form></dialog>
+      {% endif %}</td>
+    </tr>{% empty %}<tr><td colspan="6"><div class="empty">{% icon "receipt" %}<h3>Aucune facture</h3><p>Émettez une facture depuis une demande ou avec « Nouvelle facture ».</p></div></td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+<dialog class="modal" id="m-invoice"><div class="modal-head"><div><h2>Nouvelle facture</h2><p>La période démarre à la fin de l'abonnement en cours (ou aujourd'hui).</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+  <form class="modal-body" method="post" action="{% url 'console:invoice_create' %}">{% csrf_token %}<div class="form-grid">
+    <div class="field span-2"><label>Agence</label><select class="input" name="agency" required>{% for a in agencies %}<option value="{{ a.pk }}">{{ a.name }}</option>{% endfor %}</select></div>
+    <div class="field"><label>Formule</label><select class="input" name="plan">{% for p in plans %}<option value="{{ p.pk }}" {% if p.code == "pro" %}selected{% endif %}>{{ p.name }} — {{ p.price_monthly|money:"" }} / mois</option>{% endfor %}</select></div>
+    <div class="field"><label>Facturation</label><select class="input" name="cycle">{% for v, l in cycles %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+    <div class="field span-2"><label>Note (facultatif)</label><input class="input" name="notes" maxlength="255"></div></div>
+    <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">Émettre</button></div></form></dialog>
+{% endblock %}
