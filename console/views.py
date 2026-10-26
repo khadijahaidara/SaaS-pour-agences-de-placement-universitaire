@@ -59,8 +59,16 @@ def dashboard(request):
     p1_new = Prospect.objects.filter(priority="P1", status="new")[:10]
     expiring = Agency.objects.filter(plan=Agency.Plan.TRIAL, trial_ends_at__lte=soon, trial_ends_at__gt=timezone.now())
     recent = Agency.objects.order_by("-created_at")[:6]
+    from dossiers.tasks import TASK_LABELS, TASKS
+
+    from .models import TaskRun
+
+    task_runs = [TaskRun.objects.filter(name=n).first() for n in TASKS]
+    task_runs = [t for t in task_runs if t]
+    for t in task_runs:
+        t.label = TASK_LABELS.get(t.name, t.name)
     return render(request, "console/dashboard.html", {
-        "stats": stats, "pipeline": pipeline, "due": due, "p1_new": p1_new, "expiring": expiring, "recent": recent,
+        "stats": stats, "pipeline": pipeline, "due": due, "p1_new": p1_new, "expiring": expiring, "recent": recent, "task_runs": task_runs,
     })
 
 

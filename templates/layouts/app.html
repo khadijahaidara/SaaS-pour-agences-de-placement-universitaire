@@ -28,7 +28,7 @@
         <div class="nav-title">Mon agence</div>
         <a class="nav-link {% if ns == 'agencies' and 'workflow' in name %}active{% endif %}" href="{% url 'agencies:workflows' %}">{% icon "route" %} Parcours par destination</a>
         <a class="nav-link {% if ns == 'agencies' and 'team' in name or name == 'member_invitation' %}active{% endif %}" href="{% url 'agencies:team' %}">{% icon "users" %} Équipe</a>
-        <a class="nav-link {% if ns == 'agencies' and name == 'settings' %}active{% endif %}" href="{% url 'agencies:settings' %}">{% icon "sliders" %} Paramètres et portail</a>
+        <a class="nav-link {% if ns == 'agencies' and 'workflow' not in name and name != 'team' and name != 'member_invitation' %}active{% endif %}" href="{% url 'agencies:settings' %}">{% icon "sliders" %} Paramètres et portail</a>
       </nav>
       {% endif %}
       <div class="sidebar-foot">

@@ -48,6 +48,9 @@ class User(AbstractUser):
     username = None
     email = models.EmailField("courriel", unique=True)
     phone = models.CharField("téléphone / WhatsApp", max_length=30, blank=True)
+    notify_email = models.BooleanField("recevoir les notifications par courriel", default=True)
+    daily_digest = models.BooleanField("recevoir le résumé quotidien", default=True,
+                                       help_text="Conseillers et responsables : les dossiers à traiter, chaque matin.")
     role = models.CharField("rôle", max_length=20, choices=Role.choices, default=Role.STUDENT)
     agency = models.ForeignKey(
         "agencies.Agency",

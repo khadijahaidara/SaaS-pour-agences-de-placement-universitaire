@@ -18,5 +18,6 @@ urlpatterns = [
     path("agence/parametres/", include("agencies.urls")),
     path("etudiant/", include("portal.urls")),
     path("console/", include("console.urls")),
+    path("api/", include("api.urls")),
     path("plateforme/admin/", admin.site.urls),
 ]

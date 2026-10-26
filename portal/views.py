@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from agencies.customization import display_custom_data
 from dossiers import services
 from dossiers.forms import DocumentUploadForm
 from dossiers.models import Dossier, DocumentRequest
@@ -31,6 +32,7 @@ def dossier(request, pk):
         "events": d.events.filter(visible_to_student=True)[:20],
         "upload_form": DocumentUploadForm(),
         "is_open": d.status in {Dossier.Status.ACTIVE, Dossier.Status.BLOCKED},
+        "custom_rows": display_custom_data(d, for_student=True),
     })
 
 

@@ -133,6 +133,7 @@ class Dossier(models.Model):
     status = models.CharField("statut", max_length=20, choices=Status.choices, default=Status.ACTIVE)
     blocked_reason = models.CharField("motif du blocage / refus", max_length=255, blank=True)
     internal_notes = models.TextField("notes internes (non visibles par l'étudiant)", blank=True)
+    custom_data = models.JSONField("champs personnalisés", default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     last_activity_at = models.DateTimeField(default=timezone.now)
@@ -221,6 +222,9 @@ class Dossier(models.Model):
             alerts.append({"code": "stale", "label": f"Aucune activité depuis {settings.STALE_DOSSIER_DAYS} j ou plus", "weight": 10})
         if not self.counselor_id:
             alerts.append({"code": "unassigned", "label": "Aucun conseiller assigné", "weight": 12})
+        overdue_fees = self.fees.filter(due_date__lt=today).aggregate(s=Sum("amount"))["s"] or Decimal("0")
+        if overdue_fees and self.total_paid() < overdue_fees:
+            alerts.append({"code": "payment_overdue", "label": "Échéance de paiement dépassée", "weight": 14})
         return alerts
 
     def priority_score(self) -> int:
@@ -318,6 +322,7 @@ class DocumentRequest(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
+    last_reminded_at = models.DateTimeField("dernière relance", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -368,6 +373,9 @@ class ServiceFee(models.Model):
     label = models.CharField("prestation", max_length=150)
     amount = models.DecimalField("montant", max_digits=12, decimal_places=0)
     due_date = models.DateField("échéance", null=True, blank=True)
+    offer = models.ForeignKey("agencies.ServiceOffer", on_delete=models.SET_NULL, null=True, blank=True,
+                              related_name="+", verbose_name="prestation d'origine")
+    last_reminded_at = models.DateTimeField("dernière relance", null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -378,6 +386,20 @@ class ServiceFee(models.Model):
 
     def __str__(self) -> str:
         return f"{self.label} ({self.amount})"
+
+
+def next_receipt_number(agency) -> str:
+    """Numéro séquentiel par agence et par année (ex. HZN-2026-0007), sans doublon sous concurrence."""
+    from django.db import transaction
+
+    from agencies.models import Counter
+
+    year = timezone.localdate().year
+    with transaction.atomic():
+        counter, _ = Counter.objects.select_for_update().get_or_create(agency=agency, name="receipt", year=year)
+        counter.value += 1
+        counter.save(update_fields=["value"])
+    return f"{agency.effective_receipt_prefix}-{year}-{counter.value:04d}"
 
 
 class Payment(models.Model):
@@ -413,7 +435,7 @@ class Payment(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.receipt_number:
-            self.receipt_number = f"REC-{timezone.now():%y%m}-{uuid.uuid4().hex[:6].upper()}"
+            self.receipt_number = next_receipt_number(self.dossier.agency)
         super().save(*args, **kwargs)
 
     @property

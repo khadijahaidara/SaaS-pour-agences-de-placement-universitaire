@@ -1,17 +1,31 @@
 from django.contrib.auth import views as auth_views
+from django.contrib.auth.forms import AuthenticationForm
+from django.core.exceptions import ValidationError
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 
 
+class TenantAuthenticationForm(AuthenticationForm):
+    """Sur l'adresse d'une agence, seuls ses membres (et l'équipe NEURALIS) peuvent se connecter."""
+
+    def confirm_login_allowed(self, user):
+        super().confirm_login_allowed(user)
+        tenant = getattr(self.request, "tenant", None)
+        if tenant is not None and user.role != user.Role.PLATFORM_ADMIN and user.agency_id != tenant.id:
+            raise ValidationError(f"Ce compte n'appartient pas à {tenant.name}.", code="wrong_agency")
+
+
 class LoginView(auth_views.LoginView):
     template_name = "accounts/login.html"
     redirect_authenticated_user = True
+    authentication_form = TenantAuthenticationForm
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        ctx["login_agency"] = getattr(self.request, "tenant", None)
         slug = self.request.GET.get("agence", "")
-        if slug:
+        if slug and ctx["login_agency"] is None:
             from agencies.models import Agency
 
             ctx["login_agency"] = Agency.objects.filter(slug=slug, is_active=True).first()
@@ -64,32 +78,35 @@ def layout_for(user) -> str:
 def profile(request):
     from django.contrib import messages
     from django.contrib.auth import update_session_auth_hash
-    from django.contrib.auth.forms import PasswordChangeForm
     from django.shortcuts import render
 
-    from .forms import ProfileForm
+    from .forms import NotificationPrefsForm, ProfileForm, StyledPasswordChangeForm
 
     user = request.user
     profile_form = ProfileForm(instance=user, prefix="p")
-    password_form = PasswordChangeForm(user, prefix="pw")
-    for f in password_form.fields.values():
-        f.widget.attrs.setdefault("class", "input")
+    prefs_form = NotificationPrefsForm(instance=user, prefix="n")
+    password_form = StyledPasswordChangeForm(user, prefix="pw")
     if request.method == "POST":
         if "save_profile" in request.POST:
             profile_form = ProfileForm(request.POST, instance=user, prefix="p")
             if profile_form.is_valid():
                 profile_form.save()
-                messages.success(request, "Profil mis à jour.")
+                messages.success(request, "Informations personnelles enregistrées.")
+                return redirect("accounts:profile")
+        elif "save_prefs" in request.POST:
+            prefs_form = NotificationPrefsForm(request.POST, instance=user, prefix="n")
+            if prefs_form.is_valid():
+                prefs_form.save()
+                messages.success(request, "Préférences de notification enregistrées.")
                 return redirect("accounts:profile")
         elif "change_password" in request.POST:
-            password_form = PasswordChangeForm(user, request.POST, prefix="pw")
-            for f in password_form.fields.values():
-                f.widget.attrs.setdefault("class", "input")
+            password_form = StyledPasswordChangeForm(user, request.POST, prefix="pw")
             if password_form.is_valid():
                 password_form.save()
                 update_session_auth_hash(request, password_form.user)
-                messages.success(request, "Mot de passe modifié.")
+                messages.success(request, "Mot de passe modifié. Vos autres sessions restent connectées jusqu'à leur expiration.")
                 return redirect("accounts:profile")
     return render(request, "accounts/profile.html", {
-        "layout": layout_for(user), "profile_form": profile_form, "password_form": password_form,
+        "layout": layout_for(user), "profile_form": profile_form, "prefs_form": prefs_form,
+        "password_form": password_form,
     })

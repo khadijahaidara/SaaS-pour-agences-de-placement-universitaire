@@ -18,6 +18,8 @@
         <tr><th>Total des frais de service</th><td>{{ dossier.total_fees|money:dossier.agency.currency }}</td></tr>
         <tr><th>Solde restant à ce jour</th><td>{{ dossier.balance|money:dossier.agency.currency }}</td></tr>
       </table>
+      {% if dossier.agency.legal_info %}<p class="tiny muted" style="margin-top:1rem">{{ dossier.agency.legal_info }}</p>{% endif %}
+      {% if dossier.agency.receipt_footer %}<p class="small" style="margin-top:.6rem">{{ dossier.agency.receipt_footer }}</p>{% endif %}
       <p class="disclaimer">Ce reçu concerne uniquement les frais de service de l'agence (accompagnement). Il ne couvre ni les frais de scolarité ni les frais consulaires, et ne garantit en aucun cas une admission ou un visa : ces décisions appartiennent aux établissements et aux autorités consulaires.</p>
     </div>
   </article>

@@ -37,6 +37,13 @@
       </tbody></table></div></div>
     </section>
     <section class="panel">
+      <div class="panel-head"><h2>Tâches automatiques</h2></div>
+      <div class="panel-body small">
+        {% for t in task_runs %}<div class="row between" style="padding:.3rem 0"><span>{{ t.label }}</span><span>{% if t.status == "success" %}<span class="badge t-ok">OK</span>{% elif t.status == "error" %}<span class="badge t-danger">Erreur</span>{% else %}<span class="badge t-muted">En cours</span>{% endif %} <span class="tiny muted">{{ t.started_at|date:"d/m H:i" }}</span></span></div>
+        {% empty %}<p class="muted">Jamais exécutées. Planifiez <span class="code">python manage.py run_scheduled_tasks</span> toutes les heures.</p>{% endfor %}
+      </div>
+    </section>
+    <section class="panel">
       <div class="panel-head"><h2>Dernières agences</h2></div>
       <div class="panel-body"><ul class="feed">{% for a in recent %}<li><span class="dot">{% icon "building" %}</span><div><strong>{{ a.name }}</strong> <span class="badge s-{{ a.plan }}">{{ a.get_plan_display }}</span><time>créée le {{ a.created_at|date:"d/m/Y" }}{% if a.signup_source == "self_signup" %} · inscription en ligne{% endif %}</time></div></li>{% empty %}<li class="small muted" style="display:block">Aucune agence.</li>{% endfor %}</ul>
       {% if expiring %}<div class="alert-box ochre" style="margin:1rem 0 0">{% icon "clock" %}<div>Essai qui se termine bientôt : {% for a in expiring %}<strong>{{ a.name }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %}.</div></div>{% endif %}

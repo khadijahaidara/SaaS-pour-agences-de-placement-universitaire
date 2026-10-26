@@ -1,0 +1,33 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Adresse web{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Paramètres de l'agence</h1><p>Personnalisez NEURALIS Mobility à l'image de votre agence.</p></div></div>
+{% include "agencies/_tabs.html" %}
+<div class="grid cols-main">
+<form method="post" class="panel">{% csrf_token %}
+  <div class="panel-head"><h2>Adresse web de votre agence</h2></div>
+  <div class="panel-body">
+    <p class="small muted">Vos conseillers et vos étudiants se connectent sur une adresse à votre nom, avec votre logo et vos couleurs. Les comptes d'autres agences y sont refusés.</p>
+    {% if form.non_field_errors %}<div class="alert-box error">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+    <div class="field{% if form.subdomain.errors %} has-error{% endif %}">
+      <label for="id_subdomain">Sous-domaine</label>
+      <div class="row" style="flex-wrap:nowrap"><span class="small muted nowrap">https://</span>{{ form.subdomain }}<span class="small muted nowrap">.{{ base_domain|default:"neuralis-mobility.com" }}</span></div>
+      <div class="help">{{ form.subdomain.help_text }}</div>
+      {% if form.subdomain.errors %}<div class="errors">{{ form.subdomain.errors|join:" " }}</div>{% endif %}
+    </div>
+    <div class="form-actions"><button class="btn" type="submit">Enregistrer</button></div>
+  </div>
+</form>
+<aside class="stack">
+  <section class="panel"><div class="panel-head"><h2>Votre lien de connexion</h2></div>
+    <div class="panel-body small">
+      <div class="row"><input class="input grow" id="portal-link" readonly value="{{ portal_url }}"><button class="btn ghost sm" type="button" data-copy="#portal-link">{% icon "copy" "sm" %}</button></div>
+      <p class="muted" style="margin-top:.7rem">À partager avec vos étudiants (WhatsApp, site web, cartes de visite).</p>
+    </div></section>
+  <section class="panel"><div class="panel-head"><h2>Votre propre domaine</h2></div>
+    <div class="panel-body small">
+      {% if agency.custom_domain %}<p>Domaine actif : <span class="code">{{ agency.custom_domain }}</span></p>
+      {% else %}<p class="muted">Vous voulez utiliser votre domaine (ex. <span class="code">suivi.monagence.ml</span>) ? Contactez l'équipe NEURALIS : nous le configurons avec vous (DNS et certificat HTTPS).</p>{% endif %}
+    </div></section>
+</aside>
+</div>
+{% endblock %}

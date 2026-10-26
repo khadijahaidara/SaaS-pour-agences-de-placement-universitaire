@@ -5,7 +5,7 @@ from django.forms import inlineformset_factory
 from dossiers.forms import StyledFormMixin
 from dossiers.models import DocumentTemplate, StageTemplate, WorkflowTemplate
 
-from .models import Agency
+from .models import Agency, CustomField, MessageTemplate, OfferInstallment, ServiceOffer
 
 User = get_user_model()
 
@@ -61,6 +61,107 @@ class AgencySettingsForm(StyledFormMixin, forms.ModelForm):
         if logo and hasattr(logo, "size") and logo.size > MAX_LOGO_SIZE:
             raise forms.ValidationError("Logo trop lourd (1 Mo maximum).")
         return logo
+
+
+class ReceiptSettingsForm(StyledFormMixin, forms.ModelForm):
+    class Meta:
+        model = Agency
+        fields = ["receipt_prefix", "legal_info", "receipt_footer"]
+
+    def clean_receipt_prefix(self):
+        value = (self.cleaned_data.get("receipt_prefix") or "").upper()
+        if value and not value.isalnum():
+            raise forms.ValidationError("Lettres et chiffres uniquement (ex. HZN).")
+        return value
+
+
+class WebAddressForm(StyledFormMixin, forms.ModelForm):
+    class Meta:
+        model = Agency
+        fields = ["subdomain"]
+
+    def clean_subdomain(self):
+        value = (self.cleaned_data.get("subdomain") or "").strip().lower() or None
+        if value and Agency.objects.exclude(pk=self.instance.pk).filter(subdomain=value).exists():
+            raise forms.ValidationError("Ce sous-domaine est déjà utilisé par une autre agence.")
+        return value
+
+
+class ServiceOfferForm(StyledFormMixin, forms.ModelForm):
+    class Meta:
+        model = ServiceOffer
+        fields = ["name", "destination_country", "description", "is_active"]
+
+    def __init__(self, *args, agency, **kwargs):
+        self.agency = agency
+        super().__init__(*args, **kwargs)
+
+    def clean_name(self):
+        name = self.cleaned_data["name"].strip()
+        if ServiceOffer.objects.filter(agency=self.agency, name__iexact=name).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("Une prestation porte déjà ce nom.")
+        return name
+
+
+InstallmentFormSet = inlineformset_factory(
+    ServiceOffer, OfferInstallment, form=type("_InstallmentForm", (StyledFormMixin, forms.ModelForm), {}),
+    fields=["label", "amount", "due_after_days"], extra=2, can_delete=True, min_num=1, validate_min=True,
+)
+
+
+class CustomFieldForm(StyledFormMixin, forms.ModelForm):
+    class Meta:
+        model = CustomField
+        fields = ["label", "key", "field_type", "choices", "help_text", "required", "visible_to_student", "order", "is_active"]
+        widgets = {"choices": forms.Textarea(attrs={"rows": 3, "placeholder": "Un choix par ligne"})}
+
+    def __init__(self, *args, agency, **kwargs):
+        self.agency = agency
+        super().__init__(*args, **kwargs)
+        self.fields["key"].required = False
+        self.fields["key"].help_text = "Laisser vide pour le générer depuis l'intitulé. Utilisé dans les exports et l'API."
+        if self.instance.pk:
+            self.fields["key"].disabled = True
+
+    def clean(self):
+        from django.utils.text import slugify
+
+        data = super().clean()
+        if not self.instance.pk:
+            key = slugify(data.get("key") or data.get("label") or "").replace("-", "_")[:50]
+            if not key:
+                self.add_error("label", "Intitulé requis.")
+            elif CustomField.objects.filter(agency=self.agency, key=key).exists():
+                self.add_error("key", "Un champ utilise déjà cet identifiant.")
+            data["key"] = key
+            self.instance.key = key
+        if data.get("field_type") == CustomField.Type.CHOICE:
+            choices = [c for c in (data.get("choices") or "").splitlines() if c.strip()]
+            if len(choices) < 2:
+                self.add_error("choices", "Indiquez au moins deux choix, un par ligne.")
+        return data
+
+
+class MessageTemplateForm(StyledFormMixin, forms.ModelForm):
+    class Meta:
+        model = MessageTemplate
+        fields = ["name", "channel", "subject", "body", "is_active"]
+        widgets = {"body": forms.Textarea(attrs={"rows": 6})}
+
+    def __init__(self, *args, agency, **kwargs):
+        self.agency = agency
+        super().__init__(*args, **kwargs)
+
+    def clean_name(self):
+        name = self.cleaned_data["name"].strip()
+        if MessageTemplate.objects.filter(agency=self.agency, name__iexact=name).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("Un modèle porte déjà ce nom.")
+        return name
+
+
+class ApiKeyForm(StyledFormMixin, forms.Form):
+    name = forms.CharField(label="Nom de la clé", max_length=80,
+                           widget=forms.TextInput(attrs={"placeholder": "Ex. : Application mobile, Site web"}))
 
 
 class TeamMemberForm(StyledFormMixin, forms.ModelForm):

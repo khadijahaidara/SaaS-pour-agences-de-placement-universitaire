@@ -45,7 +45,7 @@ def notify(recipient, message: str, *, dossier=None, url: str = "", email: bool 
     if recipient is None or not recipient.is_active:
         return
     Notification.objects.create(recipient=recipient, dossier=dossier, message=message, url=url)
-    if email and recipient.email:
+    if email and recipient.email and getattr(recipient, "notify_email", True):
         # L'envoi ne doit jamais faire échouer l'action métier.
         def _send():
             try:

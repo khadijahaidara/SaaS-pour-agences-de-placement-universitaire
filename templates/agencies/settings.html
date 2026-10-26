@@ -1,6 +1,7 @@
 {% extends "layouts/app.html" %}{% load ui %}{% block title %}Paramètres de l'agence{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>Paramètres et portail</h1><p>Ces informations apparaissent sur le portail de vos étudiants et sur les reçus.</p></div></div>
+<div class="page-head"><div><h1>Paramètres de l'agence</h1><p>Personnalisez NEURALIS Mobility à l'image de votre agence.</p></div></div>
+{% include "agencies/_tabs.html" %}
 <div class="grid cols-main">
 <form method="post" enctype="multipart/form-data" class="panel">{% csrf_token %}
   <div class="panel-body">
@@ -45,7 +46,7 @@
     <div class="panel-head"><h2>Lien de connexion de vos étudiants</h2></div>
     <div class="panel-body small">
       <p class="muted">Ce lien affiche votre logo sur la page de connexion.</p>
-      <div class="row"><input class="input grow" id="portal-link" readonly value="{{ request.scheme }}://{{ request.get_host }}{% url 'accounts:login' %}?agence={{ agency.slug }}"><button class="btn ghost sm" type="button" data-copy="#portal-link">{% icon "copy" "sm" %}</button></div>
+      <div class="row"><input class="input grow" id="portal-link" readonly value="{{ portal_url }}"><button class="btn ghost sm" type="button" data-copy="#portal-link">{% icon "copy" "sm" %}</button></div>
     </div>
   </section>
 </aside>

@@ -1,0 +1,9 @@
+{% load ui %}<nav class="tabs" aria-label="Paramètres de l'agence">
+  <a href="{% url 'agencies:settings' %}" class="{% if tab == 'general' %}active{% endif %}">{% icon "building" "sm" %} Agence et portail</a>
+  <a href="{% url 'agencies:offers' %}" class="{% if tab == 'offers' %}active{% endif %}">{% icon "cowrie" "sm" %} Prestations et tarifs</a>
+  <a href="{% url 'agencies:fields' %}" class="{% if tab == 'fields' %}active{% endif %}">{% icon "sliders" "sm" %} Champs des dossiers</a>
+  <a href="{% url 'agencies:templates' %}" class="{% if tab == 'messages' %}active{% endif %}">{% icon "message" "sm" %} Messages</a>
+  <a href="{% url 'agencies:receipts' %}" class="{% if tab == 'receipts' %}active{% endif %}">{% icon "receipt" "sm" %} Reçus</a>
+  <a href="{% url 'agencies:web_address' %}" class="{% if tab == 'web' %}active{% endif %}">{% icon "globe" "sm" %} Adresse web</a>
+  <a href="{% url 'agencies:api_keys' %}" class="{% if tab == 'api' %}active{% endif %}">{% icon "lock" "sm" %} API</a>
+</nav>

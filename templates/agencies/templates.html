@@ -1,0 +1,16 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Modèles de messages{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Paramètres de l'agence</h1><p>Personnalisez NEURALIS Mobility à l'image de votre agence.</p></div>
+<a class="btn" href="{% url 'agencies:template_create' %}">{% icon "plus" "sm" %} Nouveau modèle</a></div>
+{% include "agencies/_tabs.html" %}
+<p class="small muted" style="margin-top:-.4rem">Vos messages types, remplis automatiquement avec les informations du dossier, à envoyer par WhatsApp ou courriel depuis chaque dossier.</p>
+<div class="grid cols-2">
+{% for t in templates %}
+<section class="panel"{% if not t.is_active %} style="opacity:.6"{% endif %}>
+  <div class="panel-head"><div class="row">{% if t.channel == "email" %}{% icon "mail" %}{% else %}{% icon "message" %}{% endif %}<h2 style="margin:0">{{ t.name }}</h2></div><a class="btn ghost sm" href="{% url 'agencies:template_edit' t.pk %}">{% icon "pencil" "sm" %} Modifier</a></div>
+  <div class="panel-body"><div class="preview-box small">{% if t.subject %}<strong>{{ t.subject }}</strong>
+{% endif %}{{ t.body|truncatechars:260 }}</div></div>
+</section>
+{% empty %}<section class="panel"><div class="empty">{% icon "message" %}<h3>Aucun modèle</h3><a class="btn" href="{% url 'agencies:template_create' %}">{% icon "plus" "sm" %} Créer un modèle</a></div></section>{% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}API{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Paramètres de l'agence</h1><p>Personnalisez NEURALIS Mobility à l'image de votre agence.</p></div></div>
+{% include "agencies/_tabs.html" %}
+{% if new_key %}
+<div class="alert-box info" style="align-items:center">{% icon "lock" %}<div class="grow"><strong>Votre nouvelle clé</strong> — copiez-la maintenant et gardez-la secrète, elle ne sera plus affichée.
+  <div class="row" style="margin-top:.5rem"><input class="input grow code" readonly value="{{ new_key }}" id="new-key"><button class="btn sm" type="button" data-copy="#new-key">{% icon "copy" "sm" %} Copier</button></div></div></div>
+{% endif %}
+<div class="grid cols-main">
+<section class="panel">
+  <div class="panel-head"><h2>Clés d'accès</h2><a class="small" href="{% url 'api:docs' %}" target="_blank">Documentation de l'API {% icon "external" "sm" %}</a></div>
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th>Nom</th><th class="hide-sm">Clé</th><th class="hide-sm">Dernière utilisation</th><th>État</th><th></th></tr></thead>
+    <tbody>{% for k in keys %}<tr>
+      <td class="strong">{{ k.name }}<br><span class="tiny muted" style="font-weight:400">créée le {{ k.created_at|date:"d/m/Y" }} par {{ k.created_by.get_full_name|default:k.created_by.email }}</span></td>
+      <td class="hide-sm"><span class="code">nm_{{ k.prefix }}_…</span></td>
+      <td class="hide-sm small">{{ k.last_used_at|date:"d/m/Y H:i"|default:"jamais" }}</td>
+      <td>{% if k.is_active %}<span class="badge t-ok">Active</span>{% else %}<span class="badge t-muted">Révoquée</span>{% endif %}</td>
+      <td class="num">{% if k.is_active %}<form method="post" action="{% url 'agencies:api_key_revoke' k.pk %}">{% csrf_token %}<button class="btn subtle sm" type="submit">Révoquer</button></form>{% endif %}</td>
+    </tr>{% empty %}<tr><td colspan="5"><div class="empty">{% icon "lock" %}<h3>Aucune clé</h3><p>Créez une clé pour connecter votre site web, une application mobile ou un autre outil.</p></div></td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+<aside class="stack">
+  <form method="post" class="panel">{% csrf_token %}<div class="panel-head"><h2>Nouvelle clé</h2></div>
+    <div class="panel-body">{% include "includes/form.html" %}<button class="btn block" type="submit">Créer la clé</button></div></form>
+  <section class="panel"><div class="panel-head"><h2>Utilisation</h2></div><div class="panel-body small">
+    <p>Ajoutez l'en-tête suivant à chaque requête :</p>
+    <p><span class="code">Authorization: Api-Key nm_…</span></p>
+    <p class="muted">Adresse : <span class="code">{{ request.scheme }}://{{ request.get_host }}/api/v1/</span>. Une clé donne accès à toute l'agence : ne la partagez qu'avec des outils de confiance et révoquez-la en cas de doute.</p>
+  </div></section>
+</aside>
+</div>
+{% endblock %}

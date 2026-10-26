@@ -1,0 +1,24 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Modèle de message{% endblock %}
+{% block content %}
+<div class="page-head"><div>
+  <div class="crumbs"><a href="{% url 'agencies:templates' %}">Messages</a>{% icon "chevron-right" "sm" %}{% if instance.pk %}{{ instance.name }}{% else %}Nouveau{% endif %}</div>
+  <h1>{% if instance.pk %}{{ instance.name }}{% else %}Nouveau modèle{% endif %}</h1></div></div>
+<div class="grid cols-main">
+<form method="post" class="panel">{% csrf_token %}<div class="panel-body">
+  {% include "includes/form.html" %}
+  <div class="form-actions"><a class="btn ghost" href="{% url 'agencies:templates' %}">Annuler</a><button class="btn" type="submit">Enregistrer</button></div>
+</div></form>
+<aside class="panel"><div class="panel-head"><h2>Variables</h2></div><div class="panel-body small">
+  <p class="muted">Cliquez pour insérer dans le message. Elles sont remplacées par les informations du dossier.</p>
+  <div class="var-chips">{% for key, label in variables.items %}<button type="button" data-insert="{{ key }}" title="{{ label }}">{{ label }}</button>{% endfor %}</div>
+</div></aside>
+</div>
+<script>
+document.addEventListener("click", function (e) {
+  var b = e.target.closest("[data-insert]"); if (!b) return;
+  var ta = document.getElementById("id_body"); var token = "{" + b.dataset.insert + "}";
+  var s = ta.selectionStart || ta.value.length; ta.value = ta.value.slice(0, s) + token + ta.value.slice(ta.selectionEnd || s);
+  ta.focus(); ta.selectionStart = ta.selectionEnd = s + token.length;
+});
+</script>
+{% endblock %}

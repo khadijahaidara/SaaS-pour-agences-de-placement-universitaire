@@ -65,7 +65,13 @@ if not SECRET_KEY:
     else:
         raise RuntimeError("DJANGO_SECRET_KEY doit être défini en production.")
 
+# Domaine principal des agences : <sous-domaine>.BASE_DOMAIN (ex. neuralis-mobility.com).
+# En développement, « localhost » permet de tester agence-demo-bamako.localhost:8000.
+BASE_DOMAIN = os.environ.get("BASE_DOMAIN", "localhost" if DEBUG else "").strip().lower()
+
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
+if BASE_DOMAIN:
+    ALLOWED_HOSTS += [BASE_DOMAIN, "." + BASE_DOMAIN]
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 
 INSTALLED_APPS = [
@@ -81,6 +87,9 @@ INSTALLED_APPS = [
     "dossiers",
     "portal",
     "console",
+    "api",
+    "rest_framework",
+    "drf_spectacular",
 ]
 
 MIDDLEWARE = [
@@ -91,6 +100,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "agencies.middleware.TenantMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
@@ -199,4 +209,40 @@ LOGGING = {
     "disable_existing_loggers": False,
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "root": {"handlers": ["console"], "level": os.environ.get("LOG_LEVEL", "INFO")},
+}
+
+
+# --------------------------------------------------------------------------- #
+# API REST (Django REST framework)
+# --------------------------------------------------------------------------- #
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "api.authentication.ApiKeyAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": ["api.permissions.IsAgencyClient"],
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 50,
+    "DEFAULT_THROTTLE_CLASSES": ["api.throttling.AgencyRateThrottle"],
+    "DEFAULT_THROTTLE_RATES": {"agency": os.environ.get("API_RATE_LIMIT", "600/hour")},
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    "EXCEPTION_HANDLER": "api.exceptions.exception_handler",
+    "DATETIME_FORMAT": "iso-8601",
+}
+SPECTACULAR_SETTINGS = {
+    "TITLE": "API NEURALIS Mobility",
+    "DESCRIPTION": (
+        "API des agences de placement universitaire. Authentification : en-tête "
+        "`Authorization: Api-Key <votre clé>` (clé créée par le responsable d'agence dans "
+        "Paramètres → API). Toutes les données sont limitées à l'agence de la clé."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+    "ENUM_NAME_OVERRIDES": {
+        "DossierStatusEnum": "dossiers.models.Dossier.Status",
+        "StageStatusEnum": "dossiers.models.DossierStage.Status",
+        "DocumentStatusEnum": "dossiers.models.DocumentRequest.Status",
+    },
 }

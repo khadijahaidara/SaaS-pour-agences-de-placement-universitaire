@@ -48,6 +48,9 @@ class StyledFormMixin:
 
 
 class DossierCreateForm(StyledFormMixin, forms.ModelForm):
+    offer = forms.ModelChoiceField(label="Prestation vendue", required=False, queryset=None,
+                                   empty_label="Aucune pour l'instant",
+                                   help_text="Crée les frais et l'échéancier de paiement.")
     student_first_name = forms.CharField(label="Prénom de l'étudiant", max_length=150)
     student_last_name = forms.CharField(label="Nom de l'étudiant", max_length=150)
     student_email = forms.EmailField(label="Courriel de l'étudiant")
@@ -67,6 +70,9 @@ class DossierCreateForm(StyledFormMixin, forms.ModelForm):
         self.fields["counselor"].queryset = User.objects.filter(
             agency=agency, is_active=True, role__in=[User.Role.AGENCY_ADMIN, User.Role.COUNSELOR]
         )
+        from agencies.models import ServiceOffer
+
+        self.fields["offer"].queryset = ServiceOffer.objects.filter(agency=agency, is_active=True)
         self.fields["destination_country"].required = False
         self.fields["destination_country"].help_text = "Laisser vide pour reprendre le pays du modèle."
         self.order_fields(["student_first_name", "student_last_name", "student_email", "student_phone"])

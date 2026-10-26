@@ -1,0 +1,22 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Champ personnalisé{% endblock %}
+{% block content %}
+<div class="page-head"><div>
+  <div class="crumbs"><a href="{% url 'agencies:fields' %}">Champs des dossiers</a>{% icon "chevron-right" "sm" %}{% if instance.pk %}{{ instance.label }}{% else %}Nouveau{% endif %}</div>
+  <h1>{% if instance.pk %}{{ instance.label }}{% else %}Nouveau champ{% endif %}</h1></div></div>
+<form method="post" class="panel" style="max-width:860px">{% csrf_token %}<div class="panel-body">
+  {% if form.non_field_errors %}<div class="alert-box error">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+  <div class="form-grid">
+    {% include "includes/field.html" with field=form.label %}
+    {% include "includes/field.html" with field=form.key %}
+    {% include "includes/field.html" with field=form.field_type %}
+    {% include "includes/field.html" with field=form.order %}
+    {% include "includes/field.html" with field=form.choices span=1 %}
+    {% include "includes/field.html" with field=form.help_text span=1 %}
+    {% include "includes/field.html" with field=form.required %}
+    {% include "includes/field.html" with field=form.visible_to_student %}
+    {% include "includes/field.html" with field=form.is_active %}
+  </div>
+  <p class="tiny muted">Désactiver un champ le masque des formulaires sans effacer les valeurs déjà saisies.</p>
+  <div class="form-actions"><a class="btn ghost" href="{% url 'agencies:fields' %}">Annuler</a><button class="btn" type="submit">Enregistrer</button></div>
+</div></form>
+{% endblock %}

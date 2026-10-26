@@ -1,21 +1,88 @@
 {% extends layout %}{% load ui %}{% block title %}Mon profil{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>Mon profil</h1><p>Vos coordonnées et votre mot de passe.</p></div></div>
-<div class="grid cols-2" style="max-width:980px">
-  <form method="post" class="panel">{% csrf_token %}
-    <div class="panel-head"><h2>Coordonnées</h2></div>
-    <div class="panel-body">
-      <div class="field"><span class="label">Courriel</span><input class="input" value="{{ user.email }}" disabled></div>
-      {% include "includes/form.html" with form=profile_form %}
-      <div class="form-actions"><button class="btn" type="submit" name="save_profile">Enregistrer</button></div>
+<section class="panel" style="max-width:1040px">
+  <div class="profile-card">
+    <span class="avatar" style="{% if user.is_student %}background:color-mix(in srgb, var(--brand) 14%, white);color:var(--brand){% endif %}">{{ user|initials }}</span>
+    <div class="grow">
+      <h1>{{ user.get_full_name|default:user.email }}</h1>
+      <div class="meta-list">
+        <span><span class="badge plain t-river">{{ user.get_role_display }}</span></span>
+        {% if user.agency %}<span>{% icon "building" "sm" %} {{ user.agency.name }}</span>{% endif %}
+        <span>{% icon "mail" "sm" %} {{ user.email }}</span>
+        <span>{% icon "calendar" "sm" %} Membre depuis {{ user.date_joined|date:"F Y" }}</span>
+        {% if user.last_login %}<span>{% icon "clock" "sm" %} Dernière connexion {{ user.last_login|date:"d/m/Y à H:i" }}</span>{% endif %}
+      </div>
     </div>
-  </form>
-  <form method="post" class="panel">{% csrf_token %}
-    <div class="panel-head"><h2>Mot de passe</h2></div>
-    <div class="panel-body">
-      {% include "includes/form.html" with form=password_form %}
-      <div class="form-actions"><button class="btn" type="submit" name="change_password">Changer le mot de passe</button></div>
-    </div>
-  </form>
-</div>
+  </div>
+</section>
+
+<section class="panel" style="max-width:1040px;margin-top:1.1rem">
+  <div class="panel-body" style="padding:1.2rem 1.6rem">
+
+    <form method="post" class="settings-row" id="infos">{% csrf_token %}
+      <div class="intro"><h2>Informations personnelles</h2><p>Votre nom et votre numéro sont visibles par {% if user.is_student %}votre conseiller{% else %}votre équipe et vos étudiants{% endif %}.</p></div>
+      <div>
+        {% if profile_form.non_field_errors %}<div class="alert-box error">{{ profile_form.non_field_errors|join:" " }}</div>{% endif %}
+        <div class="form-grid">
+          {% include "includes/field.html" with field=profile_form.first_name %}
+          {% include "includes/field.html" with field=profile_form.last_name %}
+          <div class="field"><span class="label">Courriel</span><input class="input" value="{{ user.email }}" disabled aria-label="Courriel"><div class="help">Pour le changer, contactez {% if user.agency %}{{ user.agency.name }}{% else %}l'équipe NEURALIS{% endif %}.</div></div>
+          {% include "includes/field.html" with field=profile_form.phone %}
+        </div>
+        <div class="form-actions"><button class="btn" type="submit" name="save_profile">Enregistrer</button></div>
+      </div>
+    </form>
+
+    <form method="post" class="settings-row" id="notifications">{% csrf_token %}
+      <div class="intro"><h2>Notifications</h2><p>Les notifications restent toujours visibles dans l'application (cloche).</p></div>
+      <div>
+        <div class="toggle-row">
+          <div><div class="strong">Notifications par courriel</div><div class="small muted">Pièce déposée, étape franchie, paiement enregistré…</div></div>
+          <label class="switch"><input type="checkbox" name="n-notify_email" {% if prefs_form.notify_email.value %}checked{% endif %} aria-label="Notifications par courriel"><span class="slider"></span></label>
+        </div>
+        {% if not user.is_student %}
+        <div class="toggle-row">
+          <div><div class="strong">Résumé quotidien</div><div class="small muted">Chaque matin, les dossiers qui demandent votre attention.</div></div>
+          <label class="switch"><input type="checkbox" name="n-daily_digest" {% if prefs_form.daily_digest.value %}checked{% endif %} aria-label="Résumé quotidien"><span class="slider"></span></label>
+        </div>
+        {% else %}<input type="hidden" name="n-daily_digest" value="{% if prefs_form.daily_digest.value %}on{% endif %}">{% endif %}
+        <div class="form-actions"><button class="btn ghost" type="submit" name="save_prefs">Enregistrer les préférences</button></div>
+      </div>
+    </form>
+
+    <form method="post" class="settings-row" id="securite">{% csrf_token %}
+      <div class="intro"><h2>Sécurité</h2><p>Choisissez un mot de passe que vous n'utilisez nulle part ailleurs.</p></div>
+      <div style="max-width:520px">
+        {% if password_form.non_field_errors %}<div class="alert-box error">{{ password_form.non_field_errors|join:" " }}</div>{% endif %}
+        {% for field in password_form %}
+        <div class="field{% if field.errors %} has-error{% endif %}">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          <div class="pw-wrap">{{ field }}<button class="pw-toggle" type="button" data-toggle-pw="{{ field.id_for_label }}" aria-label="Afficher le mot de passe">{% icon "eye" "sm" %}</button></div>
+          {% if field.name == "new_password1" %}<div class="strength" aria-hidden="true"><span id="pw-strength"></span></div>{% endif %}
+          {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+          {% if field.errors %}<div class="errors">{{ field.errors|join:" " }}</div>{% endif %}
+        </div>
+        {% endfor %}
+        <div class="form-actions"><button class="btn" type="submit" name="change_password">{% icon "lock" "sm" %} Changer le mot de passe</button></div>
+      </div>
+    </form>
+
+  </div>
+</section>
+<script>
+document.addEventListener("click", function (e) {
+  var b = e.target.closest("[data-toggle-pw]"); if (!b) return;
+  var i = document.getElementById(b.dataset.togglePw); i.type = i.type === "password" ? "text" : "password";
+  b.setAttribute("aria-label", i.type === "password" ? "Afficher le mot de passe" : "Masquer le mot de passe");
+});
+(function () {
+  var i = document.querySelector("[data-strength]"), bar = document.getElementById("pw-strength"); if (!i || !bar) return;
+  i.addEventListener("input", function () {
+    var v = i.value, s = 0;
+    if (v.length >= 8) s++; if (v.length >= 12) s++; if (/[A-Z]/.test(v) && /[a-z]/.test(v)) s++; if (/\d/.test(v)) s++; if (/[^A-Za-z0-9]/.test(v)) s++;
+    var colors = ["var(--danger)", "var(--danger)", "var(--warn)", "var(--ochre)", "var(--ok)", "var(--ok)"];
+    bar.style.width = (v ? Math.max(15, s * 20) : 0) + "%"; bar.style.background = colors[s];
+  });
+})();
+</script>
 {% endblock %}

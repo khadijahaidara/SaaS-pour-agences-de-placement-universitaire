@@ -121,7 +121,7 @@ class PaymentTests(BaseTestCase):
             services.cancel_payment(p, self.counselor, "erreur")
         services.cancel_payment(p, self.admin, "Erreur de saisie")
         self.assertEqual(d.balance(), Decimal("100000"))
-        self.assertTrue(p.receipt_number.startswith("REC-"))
+        self.assertRegex(p.receipt_number, r"^AA-\d{4}-\d{4}$")
 
     def test_next_action_asks_payment_when_documents_ok(self):
         d = self.make_dossier()

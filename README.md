@@ -48,6 +48,40 @@ le conseiller valide ou retourne avec un motif → le dossier progresse → l'é
 | Étudiant | Uniquement son ou ses dossiers, via le portail |
 | Administrateur plateforme (NEURALIS) | Admin Django (`/plateforme/admin/`), création des agences |
 
+## Personnalisation par agence (Paramètres de l'agence)
+
+| Onglet | Ce que l'agence règle |
+|---|---|
+| Agence et portail | Nom, coordonnées, logo, couleur et message d'accueil du portail étudiant |
+| Prestations et tarifs | Offres (ex. « Pack France 750 000 FCFA ») avec échéancier ; appliquées en un clic à un dossier |
+| Champs des dossiers | Champs propres à l'agence (texte, nombre, date, liste, oui/non), visibles ou non par l'étudiant ; repris dans les exports et l'API |
+| Messages | Modèles WhatsApp / courriel avec variables (`{prenom}`, `{etape}`, `{solde}`, `{pieces_manquantes}`…) envoyés depuis un dossier |
+| Reçus | Préfixe et numérotation continue par année (`HZN-2026-0001`), mentions légales, pied de page |
+| Adresse web | Sous-domaine `agence.neuralis-mobility.com` à ses couleurs ; les comptes d'autres agences y sont refusés |
+| API | Clés d'accès pour connecter un site web, une application mobile… |
+
+En développement, `BASE_DOMAIN=localhost` (par défaut avec `DJANGO_DEBUG=1`) permet de tester
+http://agence-demo-bamako.localhost:8000. En production : `BASE_DOMAIN=neuralis-mobility.com`, un
+enregistrement DNS `*.neuralis-mobility.com` et un certificat HTTPS « wildcard ». Les domaines
+personnalisés des agences se renseignent dans l'administration technique et dans `DJANGO_ALLOWED_HOSTS`.
+
+## API REST
+
+Voir [`docs/api.md`](docs/api.md) — documentation interactive sur `/api/docs/`.
+
+## Tâches automatiques
+
+`python manage.py run_scheduled_tasks`, à lancer **toutes les heures** (idempotent, sans doublons) :
+
+- relance des étudiants pour les pièces dont l'échéance approche ou est dépassée (au plus tous les 3 jours) ;
+- rappel des échéances de paiement non couvertes (au plus une fois par semaine) ;
+- résumé quotidien par courriel aux conseillers et responsables (une fois par jour, désactivable dans « Mon profil ») ;
+- avertissement des responsables 3 jours avant la fin de l'essai, puis à son expiration.
+
+Chaque exécution est journalisée (console NEURALIS → « Tâches automatiques »).
+Planification : service `scheduler` du `docker-compose.yml`, cron (`scripts/run_tasks.sh`) ou
+Planificateur de tâches Windows (`scripts\run_tasks.bat`).
+
 ## Sécurité et confidentialité (passeports, relevés, admissions, visas)
 
 - **Isolation** : toute lecture passe par `Dossier.objects.for_user(user)` ; un objet hors périmètre renvoie 404.
@@ -115,7 +149,7 @@ Pour créer un compte d'équipe NEURALIS : `python manage.py createsuperuser`.
 python manage.py test
 ```
 
-37 tests couvrent le parcours prioritaire (services et HTTP), l'isolation entre agences, conseillers et étudiants,
+67 tests couvrent le parcours prioritaire (services et HTTP), l'isolation entre agences, conseillers et étudiants,
 la protection des fichiers, la validation des dépôts, les règles de paiement, les alertes, l'activation des comptes, l'inscription libre (anti-abus, essai), le blocage à expiration, l'import de prospects, le pipeline commercial et la conversion en agence.
 La CI GitHub (`.github/workflows/tests.yml`) les exécute sur PostgreSQL à chaque push.
 

@@ -1,0 +1,23 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Prestations et tarifs{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Paramètres de l'agence</h1><p>Personnalisez NEURALIS Mobility à l'image de votre agence.</p></div>
+<a class="btn" href="{% url 'agencies:offer_create' %}">{% icon "plus" "sm" %} Nouvelle prestation</a></div>
+{% include "agencies/_tabs.html" %}
+<p class="small muted" style="margin-top:-.4rem">Vos offres et leur échéancier. Appliquées en un clic à un dossier, elles créent les frais et leurs dates d'échéance.</p>
+<div class="grid cols-2">
+{% for o in offers %}
+<section class="panel">
+  <div class="panel-head"><div><h2 style="margin:0">{{ o.name }}</h2><div class="tiny muted">{{ o.destination_country|default:"Toutes destinations" }}{% if o.description %} · {{ o.description }}{% endif %}</div></div>
+    <div class="row">{% if not o.is_active %}<span class="badge t-muted">Retirée</span>{% endif %}<a class="btn ghost sm" href="{% url 'agencies:offer_edit' o.pk %}">{% icon "pencil" "sm" %} Modifier</a></div></div>
+  <div class="panel-body">
+    <table class="data"><tbody>
+      {% for i in o.installments.all %}<tr><td>{{ i.label }}<br><span class="tiny muted">{% if i.due_after_days %}sous {{ i.due_after_days }} jours{% else %}à l'application{% endif %}</span></td><td class="num">{{ i.amount|money }}</td></tr>{% endfor %}
+      <tr><td class="strong">Total</td><td class="num strong">{{ o.total|money:user.agency.currency }}</td></tr>
+    </tbody></table>
+  </div>
+</section>
+{% empty %}
+<section class="panel"><div class="empty">{% icon "cowrie" %}<h3>Aucune prestation</h3><p>Créez vos offres (ex. « Pack France complet ») pour les appliquer aux dossiers en un clic.</p><a class="btn" href="{% url 'agencies:offer_create' %}">{% icon "plus" "sm" %} Créer une prestation</a></div></section>
+{% endfor %}
+</div>
+{% endblock %}

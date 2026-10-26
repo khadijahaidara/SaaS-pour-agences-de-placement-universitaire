@@ -5,7 +5,8 @@ from django.utils.text import slugify
 
 from dossiers.defaults import install_default_workflows
 
-from .models import Agency
+from .defaults import install_default_templates
+from .models import RESERVED_SUBDOMAINS, Agency
 
 User = get_user_model()
 
@@ -21,6 +22,17 @@ def unique_slug(name: str) -> str:
         slug = f"{base}-{n}"
         n += 1
     return slug
+
+
+def unique_subdomain(slug: str) -> str | None:
+    base = slug[:36].strip("-")
+    if len(base) < 3:
+        return None
+    candidate, n = base, 2
+    while candidate in RESERVED_SUBDOMAINS or Agency.objects.filter(subdomain=candidate).exists():
+        candidate = f"{base}-{n}"
+        n += 1
+    return candidate
 
 
 @transaction.atomic
@@ -44,8 +56,9 @@ def create_agency(
     email = admin_email.strip().lower()
     if User.objects.filter(email__iexact=email).exists():
         raise AgencyCreationError("Un compte existe déjà avec ce courriel. Connectez-vous ou utilisez un autre courriel.")
-    agency = Agency(name=name.strip(), slug=unique_slug(name), city=city.strip() or "Bamako",
-                    phone=phone.strip(), email=email, signup_source=source)
+    slug = unique_slug(name)
+    agency = Agency(name=name.strip(), slug=slug, city=city.strip() or "Bamako",
+                    phone=phone.strip(), email=email, signup_source=source, subdomain=unique_subdomain(slug))
     agency.start_trial()
     agency.save()
     admin = User.objects.create_user(
@@ -53,6 +66,7 @@ def create_agency(
         last_name=admin_last_name.strip(), phone=phone.strip(), role=User.Role.AGENCY_ADMIN, agency=agency,
     )
     install_default_workflows(agency)
+    install_default_templates(agency)
 
     from console.models import Prospect, ProspectActivity  # import local : évite un cycle
 

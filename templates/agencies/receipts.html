@@ -1,0 +1,25 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Reçus{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Paramètres de l'agence</h1><p>Personnalisez NEURALIS Mobility à l'image de votre agence.</p></div></div>
+{% include "agencies/_tabs.html" %}
+<div class="grid cols-main">
+<form method="post" class="panel">{% csrf_token %}
+  <div class="panel-head"><h2>Reçus de paiement</h2></div>
+  <div class="panel-body">
+    {% include "includes/form.html" %}
+    <div class="form-actions"><button class="btn" type="submit">Enregistrer</button></div>
+  </div>
+</form>
+<aside class="panel">
+  <div class="panel-head"><h2>Aperçu</h2></div>
+  <div class="panel-body small">
+    <p class="muted">Numéro du prochain reçu (numérotation continue sur l'année) :</p>
+    <p><span class="code" style="font-size:1rem">{{ example }}</span></p>
+    <hr>
+    <div class="row"><span class="avatar sq" style="background:{{ agency.brand_color }};color:#fff">{{ agency.initials }}</span><div><div class="strong">{{ agency.name }}</div><div class="tiny muted">{{ agency.address|default:agency.city }}</div></div></div>
+    {% if agency.legal_info %}<p class="tiny muted" style="margin-top:.6rem">{{ agency.legal_info }}</p>{% endif %}
+    {% if agency.receipt_footer %}<p class="tiny" style="margin-top:.6rem">{{ agency.receipt_footer }}</p>{% endif %}
+  </div>
+</aside>
+</div>
+{% endblock %}

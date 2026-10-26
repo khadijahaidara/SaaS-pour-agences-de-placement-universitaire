@@ -14,15 +14,25 @@ from dossiers.models import WorkflowTemplate
 from dossiers.permissions import agency_admin_required
 from dossiers.services import build_invitation_path
 
+from api.models import ApiKey
+
+from .customization import portal_login_url
 from .forms import (
     AgencySettingsForm,
     AgencySignupForm,
+    ApiKeyForm,
+    CustomFieldForm,
     DocumentFormSet,
+    InstallmentFormSet,
+    MessageTemplateForm,
+    ReceiptSettingsForm,
+    ServiceOfferForm,
     StageFormSet,
     TeamMemberForm,
+    WebAddressForm,
     WorkflowTemplateForm,
 )
-from .models import TRIAL_DAYS, Agency
+from .models import TRIAL_DAYS, Agency, CustomField, MessageTemplate, ServiceOffer
 from .services import AgencyCreationError, create_agency
 
 User = get_user_model()
@@ -83,7 +93,8 @@ def agency_settings(request):
         form.save()
         messages.success(request, "Paramètres de l'agence enregistrés.")
         return redirect("agencies:settings")
-    return render(request, "agencies/settings.html", {"form": form, "agency": agency})
+    return render(request, "agencies/settings.html", {
+        "form": form, "agency": agency, "tab": "general", "portal_url": portal_login_url(agency, request)})
 
 
 @agency_admin_required
@@ -156,3 +167,132 @@ def workflow_edit(request, pk=None):
             messages.success(request, "Parcours enregistré. Il s'appliquera aux prochains dossiers.")
             return redirect("agencies:workflows")
     return render(request, "agencies/workflow_edit.html", {"form": form, "stages": stages, "docs": docs, "instance": instance})
+
+
+# --------------------------------------------------------------------------- #
+# Reçus et adresse web
+# --------------------------------------------------------------------------- #
+@agency_admin_required
+def receipt_settings(request):
+    agency = request.user.agency
+    form = ReceiptSettingsForm(request.POST or None, instance=agency)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Réglages des reçus enregistrés. Ils s'appliquent aux prochains paiements.")
+        return redirect("agencies:receipts")
+    from django.utils import timezone
+    example = f"{agency.effective_receipt_prefix}-{timezone.localdate().year}-0001"
+    return render(request, "agencies/receipts.html", {"form": form, "agency": agency, "tab": "receipts", "example": example})
+
+
+@agency_admin_required
+def web_address(request):
+    from django.conf import settings as dj_settings
+
+    agency = request.user.agency
+    form = WebAddressForm(request.POST or None, instance=agency)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Adresse web enregistrée.")
+        return redirect("agencies:web_address")
+    return render(request, "agencies/web_address.html", {
+        "form": form, "agency": agency, "tab": "web", "base_domain": dj_settings.BASE_DOMAIN,
+        "portal_url": portal_login_url(agency, request),
+    })
+
+
+# --------------------------------------------------------------------------- #
+# Prestations
+# --------------------------------------------------------------------------- #
+@agency_admin_required
+def offer_list(request):
+    offers = ServiceOffer.objects.filter(agency=request.user.agency).prefetch_related("installments")
+    return render(request, "agencies/offers.html", {"offers": offers, "tab": "offers"})
+
+
+@agency_admin_required
+def offer_edit(request, pk=None):
+    agency = request.user.agency
+    instance = get_object_or_404(ServiceOffer, pk=pk, agency=agency) if pk else ServiceOffer(agency=agency)
+    form = ServiceOfferForm(request.POST or None, instance=instance, agency=agency)
+    installments = InstallmentFormSet(request.POST or None, instance=instance, prefix="inst")
+    if request.method == "POST" and form.is_valid() and installments.is_valid():
+        with transaction.atomic():
+            offer = form.save()
+            installments.instance = offer
+            installments.save()
+        messages.success(request, f"Prestation « {offer.name} » enregistrée.")
+        return redirect("agencies:offers")
+    return render(request, "agencies/offer_edit.html", {"form": form, "installments": installments,
+                                                        "instance": instance, "tab": "offers"})
+
+
+# --------------------------------------------------------------------------- #
+# Champs personnalisés
+# --------------------------------------------------------------------------- #
+@agency_admin_required
+def field_list(request):
+    fields = CustomField.objects.filter(agency=request.user.agency)
+    return render(request, "agencies/fields.html", {"fields": fields, "tab": "fields"})
+
+
+@agency_admin_required
+def field_edit(request, pk=None):
+    agency = request.user.agency
+    instance = get_object_or_404(CustomField, pk=pk, agency=agency) if pk else CustomField(agency=agency)
+    form = CustomFieldForm(request.POST or None, instance=instance, agency=agency)
+    if request.method == "POST" and form.is_valid():
+        field = form.save()
+        messages.success(request, f"Champ « {field.label} » enregistré.")
+        return redirect("agencies:fields")
+    return render(request, "agencies/field_edit.html", {"form": form, "instance": instance, "tab": "fields"})
+
+
+# --------------------------------------------------------------------------- #
+# Modèles de messages
+# --------------------------------------------------------------------------- #
+@agency_admin_required
+def template_list(request):
+    templates = MessageTemplate.objects.filter(agency=request.user.agency)
+    return render(request, "agencies/templates.html", {"templates": templates, "tab": "messages"})
+
+
+@agency_admin_required
+def template_edit(request, pk=None):
+    agency = request.user.agency
+    instance = get_object_or_404(MessageTemplate, pk=pk, agency=agency) if pk else MessageTemplate(agency=agency)
+    form = MessageTemplateForm(request.POST or None, instance=instance, agency=agency)
+    if request.method == "POST" and form.is_valid():
+        tpl = form.save()
+        messages.success(request, f"Modèle « {tpl.name} » enregistré.")
+        return redirect("agencies:templates")
+    return render(request, "agencies/template_edit.html", {
+        "form": form, "instance": instance, "tab": "messages", "variables": MessageTemplate.VARIABLES})
+
+
+# --------------------------------------------------------------------------- #
+# Clés API
+# --------------------------------------------------------------------------- #
+@agency_admin_required
+def api_keys(request):
+    agency = request.user.agency
+    form = ApiKeyForm(request.POST or None)
+    new_key = None
+    if request.method == "POST" and form.is_valid():
+        if ApiKey.objects.filter(agency=agency, revoked_at__isnull=True).count() >= 10:
+            messages.error(request, "Maximum 10 clés actives. Révoquez une clé inutilisée.")
+        else:
+            _, new_key = ApiKey.generate(agency=agency, name=form.cleaned_data["name"], created_by=request.user)
+            messages.success(request, "Clé créée. Copiez-la maintenant : elle ne sera plus jamais affichée.")
+            form = ApiKeyForm()
+    keys = ApiKey.objects.filter(agency=agency).select_related("created_by")
+    return render(request, "agencies/api_keys.html", {"form": form, "keys": keys, "new_key": new_key, "tab": "api"})
+
+
+@require_POST
+@agency_admin_required
+def api_key_revoke(request, pk):
+    key = get_object_or_404(ApiKey, pk=pk, agency=request.user.agency, revoked_at__isnull=True)
+    key.revoke()
+    messages.success(request, f"Clé « {key.name} » révoquée : elle ne fonctionne plus.")
+    return redirect("agencies:api_keys")

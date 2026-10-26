@@ -30,6 +30,9 @@ from .forms import (
     PaymentForm,
     StatusForm,
 )
+from agencies import customization as custom
+from agencies.models import MessageTemplate, ServiceOffer
+
 from .models import DocumentFile, DocumentRequest, Dossier, DossierEvent, DossierStage, Notification, Payment, ServiceFee
 from .permissions import agency_staff_required, get_dossier_for
 from .services import BusinessRuleError
@@ -185,6 +188,7 @@ def _csv_safe(value):
 @agency_staff_required
 def dossiers_export(request):
     _, qs = _filtered_dossiers(request)
+    extra = custom.active_fields(request.user.agency)
     rows = []
     for d in qs.prefetch_related("stages", "fees", "payments"):
         stage = d.current_stage
@@ -194,9 +198,11 @@ def dossiers_export(request):
             d.get_status_display(), stage.name if stage else "", stage.due_date.strftime("%d/%m/%Y") if stage and stage.due_date else "",
             d.counselor.get_full_name() if d.counselor else "", int(d.total_fees()), int(d.total_paid()), int(d.balance()),
             timezone.localtime(d.created_at).strftime("%d/%m/%Y"),
+            *[d.custom_data.get(cf.key, "") for cf in extra],
         ])
     header = ["Référence", "Nom", "Prénom", "Courriel", "Téléphone", "Pays", "Ville", "Établissement", "Programme",
-              "Rentrée", "Statut", "Étape en cours", "Échéance", "Conseiller", "Frais", "Payé", "Solde", "Ouvert le"]
+              "Rentrée", "Statut", "Étape en cours", "Échéance", "Conseiller", "Frais", "Payé", "Solde", "Ouvert le",
+              *[cf.label for cf in extra]]
     return _csv_response(f"dossiers-{timezone.localdate():%Y%m%d}.csv", header, rows)
 
 
@@ -286,6 +292,7 @@ def dossier_create(request):
         return redirect("dossiers:list")
     form = DossierCreateForm(request.POST or None, agency=agency,
                              initial={"counselor": request.user if not request.user.is_agency_admin else None})
+    custom_names = custom.add_custom_fields(form, agency)
     if request.method == "POST" and form.is_valid():
         cd = form.cleaned_data
         counselor = cd["counselor"]
@@ -302,7 +309,10 @@ def dossier_create(request):
                 institution=cd["institution"], program=cd["program"], intake=cd["intake"],
                 guardian_name=cd["guardian_name"], guardian_phone=cd["guardian_phone"],
                 internal_notes=cd["internal_notes"],
+                custom_data=custom.collect_custom_data(form, agency),
             )
+            if cd.get("offer"):
+                custom.apply_offer(dossier, request.user, cd["offer"])
         except BusinessRuleError as e:
             form.add_error("student_email", str(e))
         else:
@@ -310,7 +320,8 @@ def dossier_create(request):
             if created:
                 request.session["show_invitation_for"] = dossier.student_id
             return redirect("dossiers:detail", pk=dossier.pk)
-    return render(request, "dossiers/create.html", {"form": form})
+    return render(request, "dossiers/create.html", {
+        "form": form, "custom_fields": [form[n] for n in custom_names]})
 
 
 @agency_staff_required
@@ -320,8 +331,9 @@ def dossier_detail(request, pk):
     student = dossier.student
     if request.session.pop("show_invitation_for", None) == student.pk or request.GET.get("invitation"):
         if not student.has_usable_password() or request.GET.get("invitation"):
-            invitation_url = request.build_absolute_uri(services.build_invitation_path(student))
+            invitation_url = custom.agency_base_url(dossier.agency, request) + services.build_invitation_path(student)
     docs = dossier.document_requests.select_related("stage").prefetch_related("files")
+    message_ctx = custom.message_context(dossier, request)
     return render(request, "dossiers/detail.html", {
         "dossier": dossier,
         "stages": dossier.stages.all(),
@@ -345,6 +357,13 @@ def dossier_detail(request, pk):
             "due_date": DueDateForm(auto_id="due_%s"),
         },
         "is_open": dossier.status in {Dossier.Status.ACTIVE, Dossier.Status.BLOCKED},
+        "custom_rows": custom.display_custom_data(dossier),
+        "offers": ServiceOffer.objects.filter(agency=dossier.agency, is_active=True).prefetch_related("installments"),
+        "message_templates": [
+            {"tpl": t, "subject": custom.render_text(t.subject, ctx), "body": custom.render_text(t.body, ctx)}
+            for t in MessageTemplate.objects.filter(agency=dossier.agency, is_active=True)
+            for ctx in [message_ctx]
+        ],
     })
 
 
@@ -352,12 +371,46 @@ def dossier_detail(request, pk):
 def dossier_edit(request, pk):
     dossier = get_dossier_for(request.user, pk)
     form = DossierEditForm(request.POST or None, instance=dossier)
+    custom_names = custom.add_custom_fields(form, dossier.agency, dossier.custom_data)
     if request.method == "POST" and form.is_valid():
-        form.save()
+        dossier = form.save(commit=False)
+        dossier.custom_data = custom.collect_custom_data(form, dossier.agency, dossier.custom_data)
+        dossier.save()
         services.log_event(dossier, request.user, "note", "Informations du dossier mises à jour.", visible_to_student=False)
         messages.success(request, "Dossier mis à jour.")
         return redirect("dossiers:detail", pk=dossier.pk)
-    return render(request, "dossiers/edit.html", {"form": form, "dossier": dossier})
+    return render(request, "dossiers/edit.html", {
+        "form": form, "dossier": dossier, "custom_names": custom_names,
+        "custom_fields": [form[n] for n in custom_names]})
+
+
+@require_POST
+@agency_staff_required
+def apply_offer(request, pk):
+    dossier = get_dossier_for(request.user, pk)
+    offer = get_object_or_404(ServiceOffer, pk=request.POST.get("offer"), agency=dossier.agency)
+    return _run(request, dossier, lambda: custom.apply_offer(dossier, request.user, offer),
+                f"Prestation « {offer.name} » appliquée.", "paiements")
+
+
+@require_POST
+@agency_staff_required
+def send_message(request, pk):
+    """Envoie le message par courriel, ou trace l'envoi puis ouvre WhatsApp."""
+    dossier = get_dossier_for(request.user, pk)
+    template = MessageTemplate.objects.filter(pk=request.POST.get("template") or 0, agency=dossier.agency).first()
+    channel = request.POST.get("channel", "whatsapp")
+    body = request.POST.get("body", "")[:4000]
+    subject = request.POST.get("subject", "")[:150]
+    try:
+        custom.record_message(dossier, request.user, channel=channel, subject=subject, body=body, template=template)
+    except BusinessRuleError as e:
+        messages.error(request, str(e))
+        return _back(dossier)
+    if channel == "email":
+        messages.success(request, f"Courriel envoyé à {dossier.student.email}.")
+        return _back(dossier)
+    return HttpResponseRedirect(custom.whatsapp_link(dossier.student.phone, body))
 
 
 # --------------------------------------------------------------------------- #

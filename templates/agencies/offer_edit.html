@@ -1,0 +1,23 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Prestation{% endblock %}
+{% block content %}
+<div class="page-head"><div>
+  <div class="crumbs"><a href="{% url 'agencies:offers' %}">Prestations</a>{% icon "chevron-right" "sm" %}{% if instance.pk %}{{ instance.name }}{% else %}Nouvelle{% endif %}</div>
+  <h1>{% if instance.pk %}{{ instance.name }}{% else %}Nouvelle prestation{% endif %}</h1>
+  <p>Les modifications s'appliquent aux prochains dossiers ; les frais déjà appliqués ne changent pas.</p></div></div>
+<form method="post">{% csrf_token %}
+<section class="panel"><div class="panel-body"><div class="form-grid">{% include "includes/form.html" %}</div></div></section>
+<section class="panel">
+  <div class="panel-head"><h2>Échéancier</h2><span class="small muted">Une ligne par versement</span></div>
+  {{ installments.management_form }}
+  {% if installments.non_form_errors %}<div class="alert-box error" style="margin:1rem">{{ installments.non_form_errors|join:" " }}</div>{% endif %}
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th>Versement</th><th style="width:180px">Montant ({{ user.agency.currency }})</th><th style="width:170px">À payer sous (jours)</th><th style="width:70px">Retirer</th></tr></thead>
+    <tbody>{% for f in installments %}<tr>{{ f.id }}
+      <td>{{ f.label }}{{ f.label.errors }}</td><td>{{ f.amount }}{{ f.amount.errors }}</td><td>{{ f.due_after_days }}</td><td>{% if f.instance.pk %}<label class="check-row">{{ f.DELETE }}</label>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  <div class="panel-body small muted">Exemple : « Acompte » 250 000 sous 0 jour, « Solde » 500 000 sous 45 jours. Enregistrez pour obtenir des lignes supplémentaires.</div>
+</section>
+<div class="form-actions" style="margin-top:1rem"><a class="btn ghost" href="{% url 'agencies:offers' %}">Annuler</a><button class="btn" type="submit">Enregistrer la prestation</button></div>
+</form>
+{% endblock %}

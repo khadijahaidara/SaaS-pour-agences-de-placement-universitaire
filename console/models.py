@@ -110,3 +110,26 @@ class ProspectActivity(models.Model):
 
     def __str__(self) -> str:
         return f"{self.get_kind_display()} — {self.prospect}"
+
+
+class TaskRun(models.Model):
+    """Journal d'exécution des tâches automatiques (relances, résumés…)."""
+
+    class Status(models.TextChoices):
+        RUNNING = "running", "En cours"
+        SUCCESS = "success", "Réussie"
+        ERROR = "error", "En erreur"
+
+    name = models.CharField(max_length=60)
+    started_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.RUNNING)
+    stats = models.JSONField(default=dict, blank=True)
+    error = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-started_at"]
+        indexes = [models.Index(fields=["name", "started_at"])]
+
+    def __str__(self) -> str:
+        return f"{self.name} — {self.started_at:%d/%m %H:%M} — {self.get_status_display()}"

@@ -1,0 +1,19 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Champs des dossiers{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Paramètres de l'agence</h1><p>Personnalisez NEURALIS Mobility à l'image de votre agence.</p></div>
+<a class="btn" href="{% url 'agencies:field_create' %}">{% icon "plus" "sm" %} Nouveau champ</a></div>
+{% include "agencies/_tabs.html" %}
+<p class="small muted" style="margin-top:-.4rem">Les informations propres à votre façon de travailler : n° Campus France, moyenne du bac, niveau de langue… Elles apparaissent dans chaque dossier, les exports et l'API.</p>
+<section class="panel"><div class="table-wrap"><table class="data">
+  <thead><tr><th>Intitulé</th><th>Type</th><th class="hide-sm">Identifiant</th><th class="hide-sm">Options</th><th></th></tr></thead>
+  <tbody>{% for f in fields %}
+    <tr{% if not f.is_active %} style="opacity:.55"{% endif %}>
+      <td class="strong">{{ f.label }}{% if f.help_text %}<br><span class="tiny muted" style="font-weight:400">{{ f.help_text }}</span>{% endif %}</td>
+      <td class="small">{{ f.get_field_type_display }}{% if f.field_type == "choice" %}<br><span class="tiny muted">{{ f.choice_list|join:", "|truncatechars:50 }}</span>{% endif %}</td>
+      <td class="hide-sm"><span class="code">{{ f.key }}</span></td>
+      <td class="hide-sm"><div class="chips">{% if f.required %}<span class="badge plain t-ochre">Obligatoire</span>{% endif %}{% if f.visible_to_student %}<span class="badge plain t-river">Visible étudiant</span>{% endif %}{% if not f.is_active %}<span class="badge plain t-muted">Désactivé</span>{% endif %}</div></td>
+      <td class="num"><a class="btn ghost sm" href="{% url 'agencies:field_edit' f.pk %}">{% icon "pencil" "sm" %} Modifier</a></td>
+    </tr>
+  {% empty %}<tr><td colspan="5"><div class="empty">{% icon "sliders" %}<h3>Aucun champ personnalisé</h3><p>Ajoutez les informations que vous suivez aujourd'hui dans vos fichiers Excel.</p><a class="btn" href="{% url 'agencies:field_create' %}">{% icon "plus" "sm" %} Ajouter un champ</a></div></td></tr>{% endfor %}</tbody>
+</table></div></section>
+{% endblock %}

@@ -16,6 +16,7 @@
     </div>
   </div>
   <div class="row">
+    {% if message_templates %}<button class="btn ghost" type="button" data-open-modal="m-message">{% icon "message" "sm" %} Message</button>{% endif %}
     {% if is_open and current_stage %}<button class="btn" type="button" data-open-modal="m-advance">{% icon "check" "sm" %} Terminer l'étape</button>{% endif %}
     <details class="dd">
       <summary class="btn ghost">Actions {% icon "chevron-down" "sm" %}</summary>
@@ -24,6 +25,8 @@
         <button class="dd-item" type="button" data-open-modal="m-request">{% icon "file" %} Demander une pièce</button>
         <button class="dd-item" type="button" data-open-modal="m-payment">{% icon "cowrie" %} Enregistrer un paiement</button>
         <button class="dd-item" type="button" data-open-modal="m-fee">{% icon "receipt" %} Ajouter des frais</button>
+        {% if offers %}<button class="dd-item" type="button" data-open-modal="m-offer">{% icon "cowrie" %} Appliquer une prestation</button>{% endif %}
+        {% if message_templates %}<button class="dd-item" type="button" data-open-modal="m-message">{% icon "message" %} Envoyer un message</button>{% endif %}
         <div class="dd-sep"></div>
         {% endif %}
         <button class="dd-item" type="button" data-open-modal="m-status">{% icon "flag" %} Changer le statut</button>
@@ -164,6 +167,12 @@
       {% if dossier.internal_notes %}<hr><div class="strong">Notes internes</div><p class="muted">{{ dossier.internal_notes|linebreaksbr }}</p>{% endif %}
     </div>
   </section>
+  {% if custom_rows %}
+  <section class="panel">
+    <div class="panel-head"><h2>Informations complémentaires</h2><a class="small" href="{% url 'dossiers:edit' dossier.pk %}">Modifier</a></div>
+    <div class="panel-body small"><dl style="margin:0;display:grid;gap:.55rem">{% for r in custom_rows %}<div><dt class="muted tiny">{{ r.label }}</dt><dd style="margin:0" class="strong">{{ r.value }}</dd></div>{% endfor %}</dl></div>
+  </section>
+  {% endif %}
   <section class="panel">
     <div class="panel-head"><h2>Suivi</h2></div>
     <div class="panel-body small">
@@ -241,6 +250,55 @@
     <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">Réaffecter</button></div>
   </form>
 </dialog>
+{% endif %}
+{% if offers %}
+<dialog class="modal" id="m-offer">
+  <div class="modal-head"><div><h2>Appliquer une prestation</h2><p>Les frais et leurs échéances sont ajoutés au dossier ; l'étudiant est prévenu.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+  <form class="modal-body" method="post" action="{% url 'dossiers:apply_offer' dossier.pk %}">{% csrf_token %}
+    <div class="field"><label for="offer-select">Prestation</label>
+      <select class="input" id="offer-select" name="offer" required>{% for o in offers %}<option value="{{ o.pk }}">{{ o.name }} — {{ o.total|money:cur }}{% if o.installments.all|length > 1 %} en {{ o.installments.all|length }} fois{% endif %}</option>{% endfor %}</select></div>
+    <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">Appliquer</button></div>
+  </form>
+</dialog>
+{% endif %}
+{% if message_templates %}
+<dialog class="modal" id="m-message" style="width:min(640px, calc(100vw - 24px))">
+  <div class="modal-head"><div><h2>Envoyer un message à {{ dossier.student.first_name|default:dossier.student.email }}</h2><p>Le texte est rempli avec les informations du dossier ; vous pouvez le modifier avant l'envoi.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+  <form class="modal-body" method="post" action="{% url 'dossiers:send_message' dossier.pk %}" target="_blank" id="message-form">{% csrf_token %}
+    <div class="field"><label for="msg-template">Modèle</label>
+      <select class="input" id="msg-template" name="template">{% for m in message_templates %}<option value="{{ m.tpl.pk }}" data-channel="{{ m.tpl.channel }}">{{ m.tpl.name }}</option>{% endfor %}</select></div>
+    {% for m in message_templates %}<template id="msg-{{ m.tpl.pk }}" data-subject="{{ m.subject }}">{{ m.body }}</template>{% endfor %}
+    <div class="field" id="msg-subject-field"><label for="msg-subject">Objet du courriel</label><input class="input" id="msg-subject" name="subject" maxlength="150"></div>
+    <div class="field"><label for="msg-body">Message</label><textarea class="input" id="msg-body" name="body" rows="7" required></textarea></div>
+    <input type="hidden" name="channel" id="msg-channel" value="whatsapp">
+    <div class="form-actions">
+      <button class="btn ghost" type="button" data-copy="#msg-body">{% icon "copy" "sm" %} Copier</button>
+      <button class="btn ghost" type="submit" data-channel="email" {% if not dossier.student.email %}disabled{% endif %}>{% icon "mail" "sm" %} Envoyer par courriel</button>
+      <button class="btn" type="submit" data-channel="whatsapp">{% icon "message" "sm" %} Ouvrir WhatsApp</button>
+    </div>
+    <p class="tiny muted" style="margin:.6rem 0 0">WhatsApp s'ouvre avec le message prêt à envoyer{% if dossier.student.phone %} au {{ dossier.student.phone }}{% endif %}. L'envoi est noté dans l'historique.</p>
+  </form>
+</dialog>
+<script>
+(function () {
+  var sel = document.getElementById("msg-template"), body = document.getElementById("msg-body"),
+      subj = document.getElementById("msg-subject"), form = document.getElementById("message-form");
+  function load() {
+    var t = document.getElementById("msg-" + sel.value); if (!t) return;
+    body.value = t.innerHTML.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#x27;/g, "'");
+    subj.value = t.dataset.subject || "";
+    var opt = sel.options[sel.selectedIndex];
+    document.getElementById("msg-subject-field").style.display = opt && opt.dataset.channel === "email" ? "" : "none";
+  }
+  sel.addEventListener("change", load); load();
+  form.addEventListener("submit", function (e) {
+    var ch = (e.submitter && e.submitter.dataset.channel) || "whatsapp";
+    document.getElementById("msg-channel").value = ch;
+    form.target = ch === "whatsapp" ? "_blank" : "";
+    if (ch === "whatsapp") setTimeout(function () { window.location.reload(); }, 800);
+  });
+})();
+</script>
 {% endif %}
 {% endwith %}
 {% endblock %}

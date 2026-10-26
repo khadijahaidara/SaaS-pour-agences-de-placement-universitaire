@@ -11,3 +11,4 @@ media/
 htmlcov/
 .idea/
 .vscode/
+logs/*.log

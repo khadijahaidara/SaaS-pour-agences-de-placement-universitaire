@@ -30,6 +30,16 @@
     </div>
   </div>
   <div class="form-section">
+    <h2>Prestation</h2>
+    <div class="form-grid">{% include "includes/field.html" with field=form.offer %}</div>
+  </div>
+  {% if custom_fields %}
+  <div class="form-section">
+    <h2>Informations complémentaires</h2>
+    <div class="form-grid">{% for field in custom_fields %}{% include "includes/field.html" %}{% endfor %}</div>
+  </div>
+  {% endif %}
+  <div class="form-section">
     <h2>Parent ou répondant</h2>
     <div class="form-grid">
       {% include "includes/field.html" with field=form.guardian_name %}
