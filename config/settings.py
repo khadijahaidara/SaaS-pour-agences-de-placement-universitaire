@@ -124,6 +124,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "dossiers.context_processors.unread_notifications",
                 "accounts.context_processors.agency_permissions",
+                "agencies.context_processors.appearance",
             ],
         },
     },
@@ -192,6 +193,8 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Suivi dossiers <no-re
 
 # Paramètres métier
 SITE_NAME = os.environ.get("SITE_NAME", "NEURALIS Mobility")
+# Adresse publique de la plateforme (liens et logo dans les courriels envoyés hors requête)
+SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000" if DEBUG else "").rstrip("/")
 DEFAULT_CURRENCY = os.environ.get("DEFAULT_CURRENCY", "FCFA")
 # Un dossier sans aucune activité depuis ce nombre de jours est signalé « inactif ».
 STALE_DOSSIER_DAYS = int(os.environ.get("STALE_DOSSIER_DAYS", "14"))

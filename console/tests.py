@@ -101,10 +101,14 @@ class SubscriptionTests(TestCase):
         Image.new("RGB", (8, 8), "#0f766e").save(buf, "PNG")
         png = buf.getvalue()
         resp = self.client.post(reverse("agencies:settings"), {
-            "name": "Agence Couleur", "city": "Bamako", "currency": "FCFA", "brand_color": "#123456",
+            "name": "Agence Couleur", "city": "Bamako", "currency": "FCFA",
             "logo": SimpleUploadedFile("logo.png", png, content_type="image/png"),
         })
         self.assertRedirects(resp, reverse("agencies:settings"))
+        resp = self.client.post(reverse("agencies:appearance"), {
+            "c-brand_color": "#123456", "a-accent_color": "#C98A2B", "a-sidebar_style": "brand", "a-font": "modern",
+            "a-corners": "round", "a-login_style": "map", "a-branded_emails": "on", "a-portal_show_counselor": "on"})
+        self.assertRedirects(resp, reverse("agencies:appearance"))
         agency.refresh_from_db()
         self.assertEqual(agency.brand_color, "#123456")
         logo_resp = self.client.get(reverse("agency_logo", args=[agency.slug]))

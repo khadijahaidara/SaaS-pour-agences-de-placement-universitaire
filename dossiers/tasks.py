@@ -111,8 +111,12 @@ def send_daily_digest(now=None) -> dict:
                 + "\n".join(line for _, line in lines[:30])
                 + "\n\nOuvrez votre tableau de suivi pour les traiter.\n\n— NEURALIS Mobility")
         try:
-            send_email.delay(f"[{settings.SITE_NAME}] {len(lines)} dossier(s) à traiter aujourd'hui", body,
-                             [user.email])
+            from core.emails import compose
+
+            subject, text, html = compose(user.agency, subject=f"{len(lines)} dossier(s) à traiter aujourd'hui",
+                                          body=body.rsplit("\n\n—", 1)[0], cta_url=reverse("dossiers:dashboard"),
+                                          cta_label="Ouvrir le tableau de suivi")
+            send_email.delay(subject, text, [user.email], html)
             sent += 1
         except Exception:  # pragma: no cover - dépend du serveur SMTP
             logger.exception("Résumé quotidien non envoyé à %s", user.email)

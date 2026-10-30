@@ -1,0 +1,9 @@
+{% load ui humanize %}<section class="panel">
+      <div class="panel-head"><h2>Activité récente</h2></div>
+      <div class="panel-body">
+        <ul class="feed">{% for e in recent_events %}
+          <li><span class="dot">{% if e.kind == "document" %}{% icon "file" %}{% elif e.kind == "payment" %}{% icon "cowrie" %}{% elif e.kind == "stage" %}{% icon "route" %}{% else %}{% icon "clock" %}{% endif %}</span>
+            <div><a href="{% url 'dossiers:detail' e.dossier_id %}" class="strong" style="color:var(--ink)">{{ e.dossier.student.get_full_name }}</a> — {{ e.message|truncatechars:90 }}<time>{{ e.created_at|naturaltime }}</time></div></li>
+        {% empty %}<li class="muted small" style="display:block">Pas encore d'activité.</li>{% endfor %}</ul>
+      </div>
+    </section>

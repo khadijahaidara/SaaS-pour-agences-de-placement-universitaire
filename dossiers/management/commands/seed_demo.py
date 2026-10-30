@@ -73,7 +73,7 @@ class Command(BaseCommand):
         c1.save(update_fields=["agency_role"])
         c2.agency_role = Role.objects.get(agency=agency, key="supervisor")
         c2.save(update_fields=["agency_role"])
-        cashier = mk("caisse@demo.ml", "Fatoumata", "Keïta", User.Role.COUNSELOR, "+223 70 00 00 03")
+        cashier = mk("caisse@demo.ml", "Kadiatou", "Sidibé", User.Role.COUNSELOR, "+223 70 00 00 03")
         cashier.agency_role = Role.objects.get(agency=agency, key="cashier")
         cashier.save(update_fields=["agency_role"])
 

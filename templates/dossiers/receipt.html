@@ -2,10 +2,11 @@
 {% block body %}
 <main style="max-width:720px;margin:2rem auto;padding:0 16px">
   <div class="row between no-print" style="margin-bottom:1rem"><a class="btn ghost sm" href="{% url 'home' %}">Retour</a><button class="btn sm" onclick="window.print()">{% icon "download" "sm" %} Imprimer ou enregistrer en PDF</button></div>
-  <article class="panel">
+  <article class="panel" style="overflow:hidden">
+    <div style="height:6px;background:linear-gradient(90deg, var(--brand) 70%, var(--ochre) 70%)"></div>
     <div class="panel-body" style="padding:1.6rem">
       <div class="row between" style="align-items:flex-start;margin-bottom:1.4rem">
-        <div class="row"><span class="avatar lg sq" style="background:{{ dossier.agency.brand_color }};color:#fff">{% if dossier.agency.logo %}<img src="{% url 'agency_logo' dossier.agency.slug %}" alt="">{% else %}{{ dossier.agency.initials }}{% endif %}</span>
+        <div class="row"><span class="avatar lg sq" style="background:var(--brand);color:var(--on-river)">{% if dossier.agency.logo %}<img src="{% url 'agency_logo' dossier.agency.slug %}" alt="">{% else %}{{ dossier.agency.initials }}{% endif %}</span>
           <div><div class="strong" style="font-family:var(--font-display);font-size:1.15rem">{{ dossier.agency.name }}</div><div class="small muted">{{ dossier.agency.address|default:dossier.agency.city }}, {{ dossier.agency.country }}{% if dossier.agency.phone %} · {{ dossier.agency.phone }}{% endif %}</div></div></div>
         <div style="text-align:right"><h1 style="font-size:1.4rem;margin:0">Reçu de paiement</h1><div class="small muted">N° {{ payment.receipt_number }}</div></div>
       </div>

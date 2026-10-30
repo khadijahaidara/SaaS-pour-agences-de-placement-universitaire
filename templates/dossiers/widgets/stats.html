@@ -1,0 +1,8 @@
+{% load ui humanize %}<div class="stats">
+  <div class="stat tone-river"><span class="ic-wrap">{% icon "folder" %}</span><div><div class="v">{{ stats.open }}</div><div class="l">Dossiers en cours</div></div></div>
+  <a class="stat {% if stats.to_review %}tone-ochre{% endif %}" href="{% url 'dossiers:list' %}" style="color:inherit;text-decoration:none"><span class="ic-wrap">{% icon "file-check" %}</span><div><div class="v">{{ stats.to_review }}</div><div class="l">Pièces à vérifier</div></div></a>
+  <div class="stat {% if stats.overdue %}tone-alert{% endif %}"><span class="ic-wrap">{% icon "clock" %}</span><div><div class="v">{{ stats.overdue }}</div><div class="l">Étapes en retard</div></div></div>
+  <div class="stat {% if stats.blocked %}tone-alert{% endif %}"><span class="ic-wrap">{% icon "alert" %}</span><div><div class="v">{{ stats.blocked }}</div><div class="l">Dossiers bloqués</div></div></div>
+  <div class="stat tone-ok"><span class="ic-wrap">{% icon "plane" %}</span><div><div class="v">{{ stats.completed }}</div><div class="l">Étudiants arrivés</div></div></div>
+  <div class="stat"><span class="ic-wrap">{% icon "cowrie" %}</span><div><div class="v" style="font-size:1.2rem">{{ stats.outstanding|money }}</div><div class="l">Reste à encaisser ({{ user.agency.currency }})</div></div></div>
+</div>

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>{{ subject }}</title></head>
+<body style="margin:0;padding:0;background:#eef1f6;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#16203a">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef1f6;padding:24px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e7ef">
+  <tr><td style="background:{{ brand }};padding:16px 22px;color:{{ on_brand }}">
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+      {% if logo_url %}<td style="padding-right:10px"><img src="{{ logo_url }}" width="36" height="36" alt="" style="display:block;border-radius:8px;background:#ffffff"></td>{% endif %}
+      <td style="font-size:16px;font-weight:700;color:{{ on_brand }}">{{ sender }}</td></tr></table>
+  </td></tr>
+  <tr><td style="height:3px;background:{{ accent }};line-height:3px;font-size:0">&nbsp;</td></tr>
+  <tr><td style="padding:24px 22px 8px;font-size:15px;line-height:1.6">
+    {% for p in paragraphs %}<p style="margin:0 0 14px">{{ p|linebreaksbr }}</p>{% endfor %}
+    {% if cta_url %}<p style="margin:20px 0 6px"><a href="{{ cta_url }}" style="display:inline-block;background:{{ brand }};color:{{ on_brand }};text-decoration:none;font-weight:700;padding:11px 18px;border-radius:8px">{{ cta_label }}</a></p>{% endif %}
+  </td></tr>
+  <tr><td style="padding:8px 22px 22px;font-size:13px;color:#6b7389;line-height:1.5">
+    <div style="border-top:1px solid #e2e7ef;padding-top:12px">{{ signature|linebreaksbr }}{% if agency %}{% if agency.phone %}<br>{{ agency.phone }}{% endif %}{% if agency.address %} · {{ agency.address }}{% endif %}{% endif %}</div>
+  </td></tr>
+</table>
+{% if not white_label %}<p style="font-size:11px;color:#8a93a8;margin:14px 0 0">Envoyé avec NEURALIS Mobility — suivi des études à l'étranger</p>{% endif %}
+</td></tr></table>
+</body></html>

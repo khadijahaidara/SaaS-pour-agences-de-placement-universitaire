@@ -5,7 +5,7 @@ from django.forms import inlineformset_factory
 from dossiers.forms import StyledFormMixin
 from dossiers.models import DocumentTemplate, StageTemplate, WorkflowTemplate
 
-from .models import Agency, CustomField, MessageTemplate, OfferInstallment, ServiceOffer
+from .models import Agency, AgencyTheme, CustomField, MessageTemplate, OfferInstallment, ServiceOffer
 
 User = get_user_model()
 
@@ -53,8 +53,7 @@ class AgencySettingsForm(StyledFormMixin, forms.ModelForm):
     class Meta:
         model = Agency
         fields = ["name", "city", "address", "phone", "whatsapp", "email", "website", "currency",
-                  "logo", "brand_color", "welcome_message"]
-        widgets = {"brand_color": forms.TextInput(attrs={"type": "color"})}
+                  "logo", "welcome_message"]
 
     def clean_logo(self):
         logo = self.cleaned_data.get("logo")
@@ -261,3 +260,92 @@ DocumentFormSet = inlineformset_factory(
     fields=["name", "description", "is_required", "stage_order"],
     extra=3, can_delete=True,
 )
+
+
+class BrandColorsForm(StyledFormMixin, forms.ModelForm):
+    class Meta:
+        model = Agency
+        fields = ["brand_color"]
+        widgets = {"brand_color": forms.TextInput(attrs={"type": "color"})}
+
+
+class AppearanceForm(StyledFormMixin, forms.ModelForm):
+    LINKS = 4
+    remove_login_image = forms.BooleanField(required=False, label="Retirer la photo")
+    remove_portal_cover = forms.BooleanField(required=False, label="Retirer la couverture")
+
+    class Meta:
+        model = AgencyTheme
+        fields = [
+            "accent_color", "sidebar_style", "font", "corners",
+            "login_style", "login_image", "login_title", "login_text",
+            "portal_cover", "portal_show_counselor", "facebook", "instagram", "tiktok", "linkedin", "portal_footer",
+            "branded_emails", "email_signature", "hide_platform_branding",
+        ]
+        widgets = {
+            "accent_color": forms.TextInput(attrs={"type": "color"}),
+            "login_text": forms.Textarea(attrs={"rows": 2}),
+            "email_signature": forms.Textarea(attrs={"rows": 3}),
+            "sidebar_style": forms.RadioSelect, "font": forms.RadioSelect, "corners": forms.RadioSelect,
+            "login_style": forms.RadioSelect,
+        }
+
+    def __init__(self, *args, white_label_allowed=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.white_label_allowed = white_label_allowed
+        if not white_label_allowed:
+            self.fields["hide_platform_branding"].disabled = True
+        links = list(self.instance.portal_links or [])
+        for i in range(self.LINKS):
+            link = links[i] if i < len(links) else {}
+            self.fields[f"link_label_{i}"] = forms.CharField(required=False, max_length=40, initial=link.get("label", ""),
+                                                             label="Libellé", widget=forms.TextInput(attrs={"class": "input", "placeholder": "Ex. : Campus France"}))
+            self.fields[f"link_url_{i}"] = forms.URLField(required=False, max_length=300, initial=link.get("url", ""),
+                                                          label="Adresse", widget=forms.URLInput(attrs={"class": "input", "placeholder": "https://"}))
+        for name in ("login_image", "portal_cover"):
+            self.fields[name].widget.attrs["accept"] = "image/jpeg,image/png,image/webp"
+
+    def link_rows(self):
+        return [(self[f"link_label_{i}"], self[f"link_url_{i}"]) for i in range(self.LINKS)]
+
+    def _clean_image(self, name):
+        from .branding import process_image
+
+        value = self.cleaned_data.get(name)
+        if value and hasattr(value, "content_type"):  # nouveau fichier
+            return process_image(value)
+        return value
+
+    def clean_login_image(self):
+        return self._clean_image("login_image")
+
+    def clean_portal_cover(self):
+        return self._clean_image("portal_cover")
+
+    def clean(self):
+        cd = super().clean()
+        links = []
+        for i in range(self.LINKS):
+            label, url = (cd.get(f"link_label_{i}") or "").strip(), (cd.get(f"link_url_{i}") or "").strip()
+            if label and url:
+                links.append({"label": label, "url": url})
+            elif label or url:
+                self.add_error(f"link_url_{i}" if label else f"link_label_{i}", "Indiquez le libellé et l'adresse.")
+        cd["portal_links"] = links
+        if cd.get("login_style") == AgencyTheme.LoginStyle.IMAGE and not (cd.get("login_image") or self.instance.login_image) \
+                or cd.get("login_style") == AgencyTheme.LoginStyle.IMAGE and cd.get("remove_login_image"):
+            self.add_error("login_image", "Ajoutez une photo pour ce visuel.")
+        if not self.white_label_allowed:
+            cd["hide_platform_branding"] = False
+        return cd
+
+    def save(self, commit=True):
+        theme = super().save(commit=False)
+        theme.portal_links = self.cleaned_data["portal_links"]
+        if self.cleaned_data.get("remove_login_image"):
+            theme.login_image = ""
+        if self.cleaned_data.get("remove_portal_cover"):
+            theme.portal_cover = ""
+        if commit:
+            theme.save()
+        return theme

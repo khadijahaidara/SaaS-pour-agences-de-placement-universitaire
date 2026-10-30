@@ -1,18 +1,19 @@
 {% load static %}<!doctype html>
-<html lang="fr">
+<html lang="fr" data-theme="{{ ui_theme|default:'auto' }}" data-density="{{ ui_density|default:'comfortable' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Suivi des dossiers{% endblock %} · NEURALIS Mobility</title>
-  <meta name="theme-color" content="#0e1b3d">
+  <title>{% block title %}Suivi des dossiers{% endblock %} · {{ site_brand|default:"NEURALIS Mobility" }}</title>
+  <meta name="theme-color" content="{{ theme_agency.brand_color|default:"#0e1b3d" }}">
   <link rel="preload" href="{% static 'fonts/manrope-latin.woff2' %}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
-  <link rel="icon" href="{% static 'img/favicon-64.png' %}" type="image/png">
+  {% if theme_css %}<style>{{ theme_css|safe }}</style>{% endif %}
+  {% if white_label and theme_agency.logo %}<link rel="icon" href="{% url 'agency_logo' theme_agency.slug %}">{% else %}<link rel="icon" href="{% static 'img/favicon-64.png' %}" type="image/png">{% endif %}
   <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
   {% block head %}{% endblock %}
 </head>
-<body class="{% block body_class %}{% endblock %}">
+<body class="{% block body_class %}{% endblock %} {{ theme_body_class }}">
 {% include "includes/icons.html" %}
 {% block body %}{% endblock %}
 {% include "includes/messages.html" %}

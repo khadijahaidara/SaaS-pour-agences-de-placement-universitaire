@@ -102,6 +102,7 @@
     <div class="panel-body small"><dl style="margin:0;display:grid;gap:.55rem">{% for r in custom_rows %}<div><dt class="muted tiny">{{ r.label }}</dt><dd style="margin:0" class="strong">{{ r.value }}</dd></div>{% endfor %}</dl></div>
   </section>
   {% endif %}
+  {% if agency_theme.portal_show_counselor is not False %}
   <section class="panel">
     <div class="panel-head"><h2>Mon conseiller</h2></div>
     <div class="panel-body small">
@@ -114,6 +115,17 @@
       {% else %}<p class="muted">Un conseiller vous sera bientôt attribué.</p>{% endif %}
     </div>
   </section>
+  {% endif %}
+  {% if agency_theme.portal_links or portal_agency.whatsapp or portal_agency.website %}
+  <section class="panel">
+    <div class="panel-head"><h2>Liens utiles</h2></div>
+    <div class="panel-body small useful-links">
+      {% if portal_agency.whatsapp %}<a href="https://wa.me/{{ portal_agency.whatsapp|cut:' '|cut:'+' }}" target="_blank" rel="noopener">{% icon "message" "sm" %} WhatsApp de l'agence</a>{% endif %}
+      {% for link in agency_theme.portal_links %}<a href="{{ link.url }}" target="_blank" rel="noopener">{% icon "external" "sm" %} {{ link.label }}</a>{% endfor %}
+      {% if portal_agency.website %}<a href="{{ portal_agency.website }}" target="_blank" rel="noopener">{% icon "globe" "sm" %} Site de l'agence</a>{% endif %}
+    </div>
+  </section>
+  {% endif %}
   <section class="panel">
     <div class="panel-head"><h2>Dernières nouvelles</h2></div>
     <div class="panel-body"><ul class="feed">{% for e in events %}<li><span class="dot">{% icon "bell" %}</span><div>{{ e.message }}<time>{{ e.created_at|date:"d/m/Y H:i" }}</time></div></li>{% empty %}<li class="muted small" style="display:block">—</li>{% endfor %}</ul></div>

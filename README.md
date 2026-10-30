@@ -80,6 +80,21 @@ Les formules se modifient dans l'administration technique (modèle `Plan`).
 | Reçus | Préfixe et numérotation continue par année (`HZN-2026-0001`), mentions légales, pied de page |
 | Adresse web | Sous-domaine `agence.neuralis-mobility.com` à ses couleurs ; les comptes d'autres agences y sont refusés |
 
+### Apparence (Paramètres → Apparence)
+
+| Zone | Réglages |
+|---|---|
+| Couleurs | Couleur principale et d'accent (8 palettes suggérées) ; nuances, survols et texte lisible calculés automatiquement (contraste ≥ 4,5:1 garanti) |
+| Espace équipe | Barre de navigation bleu nuit / couleur de l'agence / claire, typographie (Caractère, Moderne, Sobre), angles (arrondis, standard, droits), logo et nom de l'agence en tête de menu |
+| Page de connexion | Illustration NEURALIS, couleur de l'agence ou photo (recadrée et allégée), titre et texte d'accroche |
+| Portail étudiant | Image de couverture, carte du conseiller (affichée ou non), 4 liens utiles, réseaux sociaux, pied de page |
+| Courriels et documents | Courriels HTML au logo, à la couleur et à la signature de l'agence ; reçus aux couleurs de l'agence |
+| Marque blanche (Business) | Plus aucune mention NEURALIS : titre des pages, icône, connexion, portail, courriels |
+
+Préférences personnelles (Mon profil) : thème clair / sombre / automatique, densité confortable ou compacte,
+et **tableau de bord modulable** (8 blocs à choisir et ordonner : indicateurs, priorités, échéances,
+destinations, étapes, encaissements, charge de l'équipe, activité).
+
 Hors paramètres : **Intégrations** (clés API, webhooks, import CSV), **Équipe et sécurité** (membres, rôles,
 politique 2FA, journal d'audit) et **Abonnement**.
 
@@ -190,7 +205,7 @@ Pour créer un compte d'équipe NEURALIS : `python manage.py createsuperuser`.
 python manage.py test
 ```
 
-104 tests couvrent les formules et quotas, la facturation (PDF, encaissement, renouvellement), les rôles et l'absence d'élévation de privilèges, la 2FA, le blocage des connexions, les sessions, le journal d'audit, les webhooks (signature, relances, suspension, SSRF), l'import CSV, le parcours prioritaire (services et HTTP), l'isolation entre agences, conseillers et étudiants,
+113 tests couvrent l'apparence (palette lisible, images, marque blanche, courriels), les préférences d'affichage, le tableau de bord modulable, les formules et quotas, la facturation (PDF, encaissement, renouvellement), les rôles et l'absence d'élévation de privilèges, la 2FA, le blocage des connexions, les sessions, le journal d'audit, les webhooks (signature, relances, suspension, SSRF), l'import CSV, le parcours prioritaire (services et HTTP), l'isolation entre agences, conseillers et étudiants,
 la protection des fichiers, la validation des dépôts, les règles de paiement, les alertes, l'activation des comptes, l'inscription libre (anti-abus, essai), le blocage à expiration, l'import de prospects, le pipeline commercial et la conversion en agence.
 La CI GitHub (`.github/workflows/tests.yml`) les exécute sur PostgreSQL à chaque push.
 

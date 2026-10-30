@@ -49,8 +49,11 @@ def notify(recipient, message: str, *, dossier=None, url: str = "", email: bool 
     Notification.objects.create(recipient=recipient, dossier=dossier, message=message, url=url)
     if email and recipient.email and getattr(recipient, "notify_email", True):
         # Envoi asynchrone (Celery) après validation : ne fait jamais échouer l'action métier.
-        queue_email(f"[{settings.SITE_NAME}] {message[:80]}",
-                    f"{message}\n\nConnectez-vous pour voir le détail.", [recipient.email])
+        from core.emails import compose
+
+        subject, text, html = compose(recipient.agency, subject=message[:80], body=message,
+                                      cta_url=url, cta_label="Voir le détail")
+        queue_email(subject, text, [recipient.email], html)
 
 
 def log_event(dossier, actor, kind, message, *, visible_to_student=True):

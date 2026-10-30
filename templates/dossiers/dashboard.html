@@ -15,81 +15,43 @@
       </div>
     </details>
     {% endif %}
+    <button class="btn ghost" type="button" data-open-modal="m-widgets">{% icon "sliders" "sm" %} Personnaliser</button>
     {% if "dossiers.create" in agency_perms %}<a class="btn" href="{% url 'dossiers:create' %}">{% icon "plus" %} Nouveau dossier</a>{% endif %}
   </div>
 </div>
 
 {% if onboarding %}
 <section class="panel" style="margin-bottom:1.2rem">
-  <div class="panel-head"><h2>Bien démarrer avec NEURALIS Mobility</h2><span class="small muted">Quatre étapes pour être opérationnel</span></div>
+  <div class="panel-head"><h2>Bien démarrer</h2><span class="small muted">Quatre étapes pour être opérationnel</span></div>
   <div class="panel-body"><div class="onboard">
     {% for s in onboarding %}<a href="{{ s.url }}" class="{% if s.done %}done{% endif %}"><span class="tick">{% if s.done %}{% icon "check" "sm" %}{% endif %}</span><span class="small strong">{{ s.label }}</span></a>{% endfor %}
   </div></div>
 </section>
 {% endif %}
 
-<div class="stats">
-  <div class="stat tone-river"><span class="ic-wrap">{% icon "folder" %}</span><div><div class="v">{{ stats.open }}</div><div class="l">Dossiers en cours</div></div></div>
-  <a class="stat {% if stats.to_review %}tone-ochre{% endif %}" href="{% url 'dossiers:list' %}" style="color:inherit;text-decoration:none"><span class="ic-wrap">{% icon "file-check" %}</span><div><div class="v">{{ stats.to_review }}</div><div class="l">Pièces à vérifier</div></div></a>
-  <div class="stat {% if stats.overdue %}tone-alert{% endif %}"><span class="ic-wrap">{% icon "clock" %}</span><div><div class="v">{{ stats.overdue }}</div><div class="l">Étapes en retard</div></div></div>
-  <div class="stat {% if stats.blocked %}tone-alert{% endif %}"><span class="ic-wrap">{% icon "alert" %}</span><div><div class="v">{{ stats.blocked }}</div><div class="l">Dossiers bloqués</div></div></div>
-  <div class="stat tone-ok"><span class="ic-wrap">{% icon "plane" %}</span><div><div class="v">{{ stats.completed }}</div><div class="l">Étudiants arrivés</div></div></div>
-  <div class="stat"><span class="ic-wrap">{% icon "cowrie" %}</span><div><div class="v" style="font-size:1.2rem">{{ stats.outstanding|money }}</div><div class="l">Reste à encaisser ({{ user.agency.currency }})</div></div></div>
+<div class="widgets">
+{% for w in widgets %}<div class="widget w-{{ w.size }}" data-widget="{{ w.key }}">{% include "dossiers/widgets/"|add:w.key|add:".html" %}</div>
+{% empty %}<section class="panel"><div class="empty">{% icon "dashboard" %}<h3>Tableau de bord vide</h3><p>Choisissez les blocs à afficher.</p><button class="btn" type="button" data-open-modal="m-widgets">Personnaliser</button></div></section>{% endfor %}
 </div>
 
-<div class="grid cols-main">
-  <section class="panel">
-    <div class="panel-head"><h2>À traiter en priorité</h2><a class="small" href="{% url 'dossiers:list' %}">Tous les dossiers</a></div>
-    <div class="panel-body flush">
-    {% if priority %}
-      <div class="table-wrap"><table class="data">
-        <thead><tr><th>Étudiant</th><th class="hide-sm">Étape en cours</th><th>Pourquoi</th><th class="hide-sm">Conseiller</th></tr></thead>
-        <tbody>
-        {% for row in priority %}{% with d=row.dossier %}
-          <tr>
-            <td><a class="cell-main rowlink" href="{% url 'dossiers:detail' d.pk %}"><span class="avatar">{{ d.student|initials }}</span><span><span class="t">{{ d.student.get_full_name|default:d.student.email }}</span><br><span class="s">{{ d.destination_country }}{% if d.program %} · {{ d.program|truncatechars:28 }}{% endif %}</span></span></a></td>
-            <td class="hide-sm small">{{ d.current_stage.name|default:"—" }}</td>
-            <td><div class="chips">{% for a in row.alerts %}<span class="chip-alert {% if a.weight < 20 %}soft{% endif %}">{{ a.label }}</span>{% endfor %}</div></td>
-            <td class="hide-sm small">{{ d.counselor.get_full_name|default:"—" }}</td>
-          </tr>
-        {% endwith %}{% endfor %}
-        </tbody>
-      </table></div>
-    {% else %}
-      <div class="empty">{% icon "check" %}<h3>Rien d'urgent</h3><p>Les dossiers en retard, bloqués ou avec des pièces à vérifier apparaîtront ici.</p></div>
-    {% endif %}
-    </div>
-  </section>
-
-  <div class="stack">
-    <section class="panel">
-      <div class="panel-head"><h2>Destinations</h2><span class="small muted">dossiers en cours</span></div>
-      <div class="panel-body">
-        {% if destinations %}
-        <div class="donut-wrap">
-          <div class="donut" style="background: {{ donut }}"><div class="center">{{ dest_total }}<small>dossiers</small></div></div>
-          <div class="legend">{% for r in destinations %}<div><span class="sw" style="background:{{ r.color }}"></span>{{ r.destination_country|default:"Non précisé" }} <strong>{{ r.n }}</strong></div>{% endfor %}</div>
-        </div>
-        {% else %}<p class="small muted">Aucun dossier en cours.</p>{% endif %}
-      </div>
-    </section>
-    <section class="panel">
-      <div class="panel-head"><h2>Où en sont les dossiers</h2></div>
-      <div class="panel-body">
-        {% if by_stage %}<div class="bars">{% for s in by_stage %}
-          <div class="bar-row"><span class="lbl" title="{{ s.name }}">{{ s.name }}</span><span class="bar-track"><span class="bar-fill" style="display:block;width:{{ s.pct }}%"></span></span><span class="n">{{ s.n }}</span></div>
-        {% endfor %}</div>{% else %}<p class="small muted">Aucune étape en cours.</p>{% endif %}
-      </div>
-    </section>
-    <section class="panel">
-      <div class="panel-head"><h2>Activité récente</h2></div>
-      <div class="panel-body">
-        <ul class="feed">{% for e in recent_events %}
-          <li><span class="dot">{% if e.kind == "document" %}{% icon "file" %}{% elif e.kind == "payment" %}{% icon "cowrie" %}{% elif e.kind == "stage" %}{% icon "route" %}{% else %}{% icon "clock" %}{% endif %}</span>
-            <div><a href="{% url 'dossiers:detail' e.dossier_id %}" class="strong" style="color:var(--ink)">{{ e.dossier.student.get_full_name }}</a> — {{ e.message|truncatechars:90 }}<time>{{ e.created_at|naturaltime }}</time></div></li>
-        {% empty %}<li class="muted small" style="display:block">Pas encore d'activité.</li>{% endfor %}</ul>
-      </div>
-    </section>
-  </div>
-</div>
+<dialog class="modal" id="m-widgets">
+  <div class="modal-head"><div><h2>Personnaliser le tableau de bord</h2><p>Cochez les blocs à afficher et réglez leur ordre. Réglage personnel : il ne change rien pour vos collègues.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+  <form class="modal-body" method="post" action="{% url 'accounts:dashboard_layout' %}">{% csrf_token %}
+    <ol class="widget-picker" id="widget-picker">
+      {% for w in widget_choices %}<li>
+        <label class="check-row"><input type="checkbox" name="widgets" value="{{ w.key }}" {% if w.enabled %}checked{% endif %}> <span><strong>{{ w.label }}</strong><br><span class="tiny muted">{{ w.description }}</span></span></label>
+        <span class="move"><button class="icon-btn" type="button" data-move="-1" aria-label="Monter">{% icon "chevron-down" "sm" %}</button><button class="icon-btn" type="button" data-move="1" aria-label="Descendre">{% icon "chevron-down" "sm" %}</button></span>
+      </li>{% endfor %}
+    </ol>
+    <div class="form-actions"><button class="btn subtle" type="submit" name="reset" value="1">Rétablir par défaut</button><button class="btn" type="submit">Enregistrer</button></div>
+  </form>
+</dialog>
+<script>
+document.getElementById("widget-picker").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-move]"); if (!b) return;
+  var li = b.closest("li"), dir = parseInt(b.dataset.move, 10);
+  if (dir < 0 && li.previousElementSibling) li.parentNode.insertBefore(li, li.previousElementSibling);
+  if (dir > 0 && li.nextElementSibling) li.parentNode.insertBefore(li.nextElementSibling, li);
+});
+</script>
 {% endblock %}

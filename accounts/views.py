@@ -110,12 +110,13 @@ def profile(request):
     from django.contrib.auth import update_session_auth_hash
     from django.shortcuts import render
 
-    from .forms import NotificationPrefsForm, ProfileForm, StyledPasswordChangeForm
+    from .forms import DisplayPrefsForm, NotificationPrefsForm, ProfileForm, StyledPasswordChangeForm
 
     user = request.user
     profile_form = ProfileForm(instance=user, prefix="p")
     prefs_form = NotificationPrefsForm(instance=user, prefix="n")
     password_form = StyledPasswordChangeForm(user, prefix="pw")
+    display_form = DisplayPrefsForm(instance=user, prefix="d")
     if request.method == "POST":
         if "save_profile" in request.POST:
             profile_form = ProfileForm(request.POST, instance=user, prefix="p")
@@ -128,6 +129,12 @@ def profile(request):
             if prefs_form.is_valid():
                 prefs_form.save()
                 messages.success(request, "Préférences de notification enregistrées.")
+                return redirect("accounts:profile")
+        elif "save_display" in request.POST:
+            display_form = DisplayPrefsForm(request.POST, instance=user, prefix="d")
+            if display_form.is_valid():
+                display_form.save()
+                messages.success(request, "Affichage enregistré.")
                 return redirect("accounts:profile")
         elif "change_password" in request.POST:
             password_form = StyledPasswordChangeForm(user, request.POST, prefix="pw")
@@ -145,5 +152,34 @@ def profile(request):
                 return redirect("accounts:profile")
     return render(request, "accounts/profile.html", {
         "layout": layout_for(user), "profile_form": profile_form, "prefs_form": prefs_form,
-        "password_form": password_form,
+        "password_form": password_form, "display_form": display_form,
     })
+
+
+@login_required
+def dashboard_layout(request):
+    from django.contrib import messages
+
+    from dossiers.widgets import clean_layout
+
+    if request.method != "POST" or not request.user.is_agency_staff:
+        return redirect("home")
+    user = request.user
+    user.dashboard_layout = [] if request.POST.get("reset") else clean_layout(user, request.POST.getlist("widgets"))
+    if not request.POST.get("reset") and not user.dashboard_layout:
+        user.dashboard_layout = ["stats"]
+    user.save(update_fields=["dashboard_layout"])
+    messages.success(request, "Tableau de bord mis à jour.")
+    return redirect("dossiers:dashboard")
+
+
+@login_required
+def set_theme(request):
+    """Bascule rapide clair / sombre depuis le menu du compte."""
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    if request.method == "POST" and request.POST.get("theme") in request.user.Theme.values:
+        request.user.ui_theme = request.POST["theme"]
+        request.user.save(update_fields=["ui_theme"])
+    nxt = request.POST.get("next") or "/"
+    return redirect(nxt if url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()}) else "/")

@@ -254,3 +254,75 @@ class Counter(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["agency", "name", "year"], name="unique_counter")]
+
+
+# --------------------------------------------------------------------------- #
+# Apparence (interface à l'image de l'agence)
+# --------------------------------------------------------------------------- #
+def branding_image_path(instance, filename):
+    return f"branding/{uuid.uuid4().hex}.jpg"
+
+
+class AgencyTheme(models.Model):
+    """Personnalisation visuelle : espace équipe, page de connexion, portail, courriels."""
+
+    class Sidebar(models.TextChoices):
+        NIGHT = "night", "Bleu nuit"
+        BRAND = "brand", "Couleur de l'agence"
+        LIGHT = "light", "Claire"
+
+    class Font(models.TextChoices):
+        CHARACTER = "character", "Caractère (titres affirmés)"
+        MODERN = "modern", "Moderne (épurée)"
+        SYSTEM = "system", "Sobre (police du système)"
+
+    class Corners(models.TextChoices):
+        ROUND = "round", "Arrondis"
+        STANDARD = "standard", "Standard"
+        SQUARE = "square", "Droits"
+
+    class LoginStyle(models.TextChoices):
+        MAP = "map", "Illustration NEURALIS (carte des destinations)"
+        BRAND = "brand", "Couleur de l'agence"
+        IMAGE = "image", "Ma photo"
+
+    agency = models.OneToOneField(Agency, on_delete=models.CASCADE, related_name="theme")
+    # Espace équipe
+    accent_color = models.CharField("couleur d'accent", max_length=7, default="#C98A2B", validators=[validate_hex_color],
+                                    help_text="Prochaines étapes, alertes douces, mises en avant.")
+    sidebar_style = models.CharField("barre de navigation", max_length=10, choices=Sidebar.choices, default=Sidebar.NIGHT)
+    font = models.CharField("typographie", max_length=10, choices=Font.choices, default=Font.CHARACTER)
+    corners = models.CharField("angles", max_length=10, choices=Corners.choices, default=Corners.STANDARD)
+    # Page de connexion
+    login_style = models.CharField("visuel de connexion", max_length=10, choices=LoginStyle.choices, default=LoginStyle.MAP)
+    login_image = models.ImageField("photo de connexion", upload_to=branding_image_path, blank=True)
+    login_title = models.CharField("titre de la page de connexion", max_length=90, blank=True,
+                                   help_text="Ex. : « Votre avenir commence ici ». Vide : texte NEURALIS.")
+    login_text = models.CharField("texte d'accroche", max_length=220, blank=True)
+    # Portail étudiant
+    portal_cover = models.ImageField("image de couverture du portail", upload_to=branding_image_path, blank=True)
+    portal_show_counselor = models.BooleanField("afficher la carte du conseiller", default=True)
+    portal_links = models.JSONField("liens utiles", default=list, blank=True)
+    facebook = models.URLField("Facebook", blank=True)
+    instagram = models.URLField("Instagram", blank=True)
+    tiktok = models.URLField("TikTok", blank=True)
+    linkedin = models.URLField("LinkedIn", blank=True)
+    portal_footer = models.CharField("pied de page du portail", max_length=200, blank=True)
+    # Courriels et documents
+    branded_emails = models.BooleanField("courriels à l'image de l'agence", default=True)
+    email_signature = models.TextField("signature des courriels", max_length=600, blank=True,
+                                       help_text="Ex. : L'équipe Horizon Études — +223 70 00 00 00")
+    # Marque blanche (formule Business)
+    hide_platform_branding = models.BooleanField("masquer la marque NEURALIS", default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "apparence de l'agence"
+
+    def __str__(self) -> str:
+        return f"Apparence — {self.agency}"
+
+    @property
+    def social_links(self):
+        return [(label, url) for label, url in [("Facebook", self.facebook), ("Instagram", self.instagram),
+                                                ("TikTok", self.tiktok), ("LinkedIn", self.linkedin)] if url]

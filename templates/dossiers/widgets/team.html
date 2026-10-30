@@ -1,0 +1,8 @@
+{% load ui %}<section class="panel">
+  <div class="panel-head"><h2>Charge de l'équipe</h2><span class="small muted">dossiers en cours</span></div>
+  <div class="panel-body">
+    {% if team_load %}<div class="bars">{% for m in team_load %}
+      <div class="bar-row"><span class="lbl" title="{{ m.name }}">{{ m.name }}</span><span class="bar-track"><span class="bar-fill" style="display:block;width:{{ m.pct }}%"></span></span><span class="n">{{ m.n }}</span></div>
+    {% endfor %}</div>{% else %}<p class="small muted">Aucun dossier en cours.</p>{% endif %}
+  </div>
+</section>

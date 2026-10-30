@@ -6,6 +6,7 @@ app_name = "agencies"
 
 urlpatterns = [
     path("agence/", views.agency_settings, name="settings"),
+    path("apparence/", views.appearance, name="appearance"),
     path("recus/", views.receipt_settings, name="receipts"),
     path("adresse-web/", views.web_address, name="web_address"),
     path("prestations/", views.offer_list, name="offers"),

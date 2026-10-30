@@ -105,8 +105,12 @@ def dashboard(request):
         top.append({"destination_country": "Autres", "n": rest})
     total = sum(r["n"] for r in top) or 1
     acc, stops = 0, []
+    from agencies.theming import mix, palette
+
+    pal = palette(agency)
+    colors = [pal["--river"], pal["--ochre"], mix(pal["--river"], "#ffffff", .55), pal["--ochre-ink"]] + DONUT_COLORS[4:]
     for i, r in enumerate(top):
-        r["color"] = DONUT_COLORS[i % len(DONUT_COLORS)]
+        r["color"] = colors[i % len(colors)]
         start = acc * 360 / total
         acc += r["n"]
         stops.append(f"{r['color']} {start:.1f}deg {acc * 360 / total:.1f}deg")
@@ -124,11 +128,74 @@ def dashboard(request):
             onboarding = steps
 
     recent_events = DossierEvent.objects.filter(dossier__in=base).select_related("dossier__student", "actor")[:8]
-    return render(request, "dossiers/dashboard.html", {
+    from .widgets import available, user_layout
+
+    widgets = user_layout(user)
+    keys = {w["key"] for w in widgets}
+    enabled = [w["key"] for w in widgets]
+    choices = sorted(available(user), key=lambda w: enabled.index(w["key"]) if w["key"] in enabled else 99)
+    for w in choices:
+        w["enabled"] = w["key"] in keys
+    ctx = {
         "priority": priority[:25], "stats": stats, "by_stage": by_stage, "scope": scope,
         "destinations": top, "donut": donut, "dest_total": sum(r["n"] for r in top),
-        "onboarding": onboarding, "recent_events": recent_events,
-    })
+        "onboarding": onboarding, "recent_events": recent_events, "widgets": widgets, "widget_choices": choices,
+    }
+    if "deadlines" in keys:
+        ctx["deadlines"] = _upcoming_deadlines(base, today)
+    if "payments" in keys:
+        ctx["payments_widget"] = _payments_widget(agency_dossiers, today)
+    if "team" in keys:
+        ctx["team_load"] = _team_load(user.agency)
+    return render(request, "dossiers/dashboard.html", ctx)
+
+
+def _upcoming_deadlines(base, today, days=14):
+    limit = today + timedelta(days=days)
+    items = []
+    for st in (DossierStage.objects.filter(dossier__in=base.open(), status=DossierStage.Status.IN_PROGRESS,
+                                           due_date__gte=today, due_date__lte=limit)
+               .select_related("dossier__student")[:30]):
+        items.append({"date": st.due_date, "dossier": st.dossier, "kind": "stage", "label": st.name})
+    for doc in (DocumentRequest.objects.filter(dossier__in=base.open(), due_date__gte=today, due_date__lte=limit,
+                                               status__in=[DocumentRequest.Status.REQUESTED, DocumentRequest.Status.REJECTED])
+                .select_related("dossier__student")[:30]):
+        items.append({"date": doc.due_date, "dossier": doc.dossier, "kind": "document", "label": doc.name})
+    items.sort(key=lambda x: x["date"])
+    for item in items:
+        item["days"] = (item["date"] - today).days
+    return items[:15]
+
+
+MONTHS_FR = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
+
+
+def _payments_widget(scope, today):
+    from django.db.models.functions import TruncMonth
+
+    start = (today.replace(day=1) - timedelta(days=155)).replace(day=1)
+    rows = {r["m"].date() if hasattr(r["m"], "date") else r["m"]: r["s"] for r in (
+        Payment.objects.filter(dossier__in=scope, cancelled_at__isnull=True, paid_on__gte=start)
+        .annotate(m=TruncMonth("paid_on")).values("m").annotate(s=Sum("amount")))}
+    months, cursor = [], start
+    for _ in range(6):
+        months.append({"label": MONTHS_FR[cursor.month - 1], "total": rows.get(cursor, 0) or 0})
+        cursor = (cursor + timedelta(days=32)).replace(day=1)
+    top = max([m["total"] for m in months] + [1])
+    for m in months:
+        m["pct"] = round(m["total"] * 100 / top)
+    return {"months": months, "month": months[-1]["total"]}
+
+
+def _team_load(agency):
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    rows = list(User.objects.filter(agency=agency, is_active=True, role__in=[User.Role.AGENCY_ADMIN, User.Role.COUNSELOR])
+                .annotate(n=Count("assigned_dossiers", filter=Q(assigned_dossiers__status__in=[
+                    Dossier.Status.ACTIVE, Dossier.Status.BLOCKED]))).order_by("-n")[:8])
+    top = max([r.n for r in rows] + [1])
+    return [{"name": r.get_full_name() or r.email, "n": r.n, "pct": round(r.n * 100 / top)} for r in rows]
 
 
 # --------------------------------------------------------------------------- #

@@ -2,7 +2,7 @@
 {% block content %}
 {% if login_agency %}
 <div class="agency-brand-login">
-  <span class="avatar lg sq" style="background:{{ login_agency.brand_color }};color:#fff">{% if login_agency.logo %}<img src="{% url 'agency_logo' login_agency.slug %}" alt="">{% else %}{{ login_agency.initials }}{% endif %}</span>
+  <span class="avatar lg sq" style="background:var(--brand);color:var(--on-river)">{% if login_agency.logo %}<img src="{% url 'agency_logo' login_agency.slug %}" alt="">{% else %}{{ login_agency.initials }}{% endif %}</span>
   <div><div class="strong">{{ login_agency.name }}</div><div class="small muted">Portail de suivi des dossiers</div></div>
 </div>
 {% endif %}

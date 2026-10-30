@@ -26,7 +26,7 @@
         <div class="form-grid">
           {% include "includes/field.html" with field=profile_form.first_name %}
           {% include "includes/field.html" with field=profile_form.last_name %}
-          <div class="field"><span class="label">Courriel</span><input class="input" value="{{ user.email }}" disabled aria-label="Courriel"><div class="help">Pour le changer, contactez {% if user.agency %}{{ user.agency.name }}{% else %}l'équipe NEURALIS{% endif %}.</div></div>
+          <div class="field"><span class="label">Courriel</span><input class="input" value="{{ user.email }}" disabled aria-label="Courriel"><div class="help">Pour le changer, contactez {% if user.agency %}{{ user.agency.name }}{% else %}l'équipe {{ site_brand }}{% endif %}.</div></div>
           {% include "includes/field.html" with field=profile_form.phone %}
         </div>
         <div class="form-actions"><button class="btn" type="submit" name="save_profile">Enregistrer</button></div>
@@ -47,6 +47,17 @@
         </div>
         {% else %}<input type="hidden" name="n-daily_digest" value="{% if prefs_form.daily_digest.value %}on{% endif %}">{% endif %}
         <div class="form-actions"><button class="btn ghost" type="submit" name="save_prefs">Enregistrer les préférences</button></div>
+      </div>
+    </form>
+
+    <form method="post" class="settings-row" id="affichage">{% csrf_token %}
+      <div class="intro"><h2>Affichage</h2><p>Réglage personnel, sur tous vos appareils.</p></div>
+      <div>
+        <div class="label">Thème</div>
+        <div class="choice-grid">{% for r in display_form.ui_theme %}<label class="choice-card">{{ r.tag }}<span class="theme-sample ts-{{ r.data.value }}"><i></i><i></i></span><span>{{ r.choice_label }}</span></label>{% endfor %}</div>
+        <div class="label" style="margin-top:1rem">Densité</div>
+        <div class="choice-grid">{% for r in display_form.ui_density %}<label class="choice-card">{{ r.tag }}<span class="density-sample ds-{{ r.data.value }}"><i></i><i></i><i></i><i></i></span><span>{{ r.choice_label }}</span></label>{% endfor %}</div>
+        <div class="form-actions"><button class="btn ghost" type="submit" name="save_display">Enregistrer l'affichage</button></div>
       </div>
     </form>
 

@@ -1,5 +1,6 @@
 {% load ui %}<nav class="tabs" aria-label="Paramètres de l'agence">
   <a href="{% url 'agencies:settings' %}" class="{% if tab == 'general' %}active{% endif %}">{% icon "building" "sm" %} Agence et portail</a>
+  <a href="{% url 'agencies:appearance' %}" class="{% if tab == 'appearance' %}active{% endif %}">{% icon "sparkle" "sm" %} Apparence</a>
   <a href="{% url 'agencies:offers' %}" class="{% if tab == 'offers' %}active{% endif %}">{% icon "cowrie" "sm" %} Prestations et tarifs</a>
   <a href="{% url 'agencies:fields' %}" class="{% if tab == 'fields' %}active{% endif %}">{% icon "sliders" "sm" %} Champs des dossiers</a>
   <a href="{% url 'agencies:templates' %}" class="{% if tab == 'messages' %}active{% endif %}">{% icon "message" "sm" %} Messages</a>

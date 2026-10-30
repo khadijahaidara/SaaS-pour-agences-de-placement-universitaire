@@ -1,0 +1,8 @@
+{% load ui humanize %}<section class="panel">
+      <div class="panel-head"><h2>Où en sont les dossiers</h2></div>
+      <div class="panel-body">
+        {% if by_stage %}<div class="bars">{% for s in by_stage %}
+          <div class="bar-row"><span class="lbl" title="{{ s.name }}">{{ s.name }}</span><span class="bar-track"><span class="bar-fill" style="display:block;width:{{ s.pct }}%"></span></span><span class="n">{{ s.n }}</span></div>
+        {% endfor %}</div>{% else %}<p class="small muted">Aucune étape en cours.</p>{% endif %}
+      </div>
+    </section>

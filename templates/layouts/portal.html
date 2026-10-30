@@ -1,9 +1,8 @@
-{% extends "base.html" %}{% load ui humanize %}
-{% block head %}<style>:root { --brand: {{ portal_agency.brand_color|default:"#1f4fb8" }}; }</style>{% endblock %}
+{% extends "base.html" %}{% load static ui humanize %}
 {% block body %}
 <header class="portal-top">
   <div class="inner">
-    <span class="avatar sq" style="background:var(--brand);color:#fff">{% if portal_agency.logo %}<img src="{% url 'agency_logo' portal_agency.slug %}" alt="">{% else %}{{ portal_agency.initials }}{% endif %}</span>
+    <span class="avatar sq" style="background:var(--brand);color:var(--on-river)">{% if portal_agency.logo %}<img src="{% url 'agency_logo' portal_agency.slug %}" alt="">{% else %}{{ portal_agency.initials }}{% endif %}</span>
     <div class="grow"><div class="agency-name">{{ portal_agency.name }}</div><div class="tiny muted">Suivi de votre dossier d'études</div></div>
     <details class="dd">
       <summary class="icon-btn" aria-label="Notifications">{% icon "bell" %}{% if unread_notifications_count %}<span class="dot">{{ unread_notifications_count }}</span>{% endif %}</summary>
@@ -22,5 +21,17 @@
     </details>
   </div>
 </header>
-<main class="portal-main">{% block content %}{% endblock %}</main>
+{% if agency_theme.portal_cover %}<div class="portal-cover" style="background-image:url('{% url 'agency_asset' portal_agency.slug 'couverture' %}?v={{ agency_theme.updated_at|date:'U' }}')" role="img" aria-label="{{ portal_agency.name }}"></div>{% endif %}
+<main class="portal-main {% if agency_theme.portal_cover %}with-cover{% endif %}">{% block content %}{% endblock %}</main>
+<footer class="portal-foot">
+  <div class="inner">
+    <div><strong>{{ portal_agency.name }}</strong>{% if agency_theme.portal_footer %}<div class="small muted">{{ agency_theme.portal_footer }}</div>{% endif %}
+      <div class="small muted">{% if portal_agency.address %}{{ portal_agency.address }} · {% endif %}{{ portal_agency.city }}{% if portal_agency.phone %} · {{ portal_agency.phone }}{% endif %}</div></div>
+    <div class="row">
+      {% for label, url in agency_theme.social_links %}<a class="chip-link" href="{{ url }}" target="_blank" rel="noopener">{{ label }}</a>{% endfor %}
+      {% if portal_agency.website %}<a class="chip-link" href="{{ portal_agency.website }}" target="_blank" rel="noopener">{% icon "globe" "sm" %} Site web</a>{% endif %}
+    </div>
+  </div>
+  {% if not white_label %}<div class="inner powered-line"><a class="powered" href="https://neuralis-mali.com" target="_blank" rel="noopener"><img src="{% static 'img/neuralis-logo.png' %}" alt="">Propulsé par NEURALIS Mobility</a></div>{% endif %}
+</footer>
 {% endblock %}

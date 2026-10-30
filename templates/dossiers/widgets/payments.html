@@ -1,0 +1,9 @@
+{% load ui %}<section class="panel">
+  <div class="panel-head"><h2>Encaissements</h2><a class="small" href="{% url 'dossiers:finances' %}">Finances</a></div>
+  <div class="panel-body">
+    <div class="stat-inline"><span class="v">{{ payments_widget.month|money }}</span><span class="l">{{ user.agency.currency }} encaissés ce mois</span></div>
+    <div class="mini-bars" role="img" aria-label="Encaissements des 6 derniers mois">
+      {% for m in payments_widget.months %}<div class="mb"><span class="bar" style="height:{{ m.pct }}%" title="{{ m.total|money }} {{ user.agency.currency }}"></span><span class="lbl">{{ m.label }}</span></div>{% endfor %}
+    </div>
+  </div>
+</section>

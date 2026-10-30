@@ -1,0 +1,11 @@
+{% load ui humanize %}<section class="panel">
+      <div class="panel-head"><h2>Destinations</h2><span class="small muted">dossiers en cours</span></div>
+      <div class="panel-body">
+        {% if destinations %}
+        <div class="donut-wrap">
+          <div class="donut" style="background: {{ donut }}"><div class="center">{{ dest_total }}<small>dossiers</small></div></div>
+          <div class="legend">{% for r in destinations %}<div><span class="sw" style="background:{{ r.color }}"></span>{{ r.destination_country|default:"Non précisé" }} <strong>{{ r.n }}</strong></div>{% endfor %}</div>
+        </div>
+        {% else %}<p class="small muted">Aucun dossier en cours.</p>{% endif %}
+      </div>
+    </section>

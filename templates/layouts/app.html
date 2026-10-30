@@ -17,7 +17,7 @@
         <a class="nav-link" href="{% url 'admin:index' %}">{% icon "sliders" %} Administration technique</a>
       </nav>
     {% else %}
-      <a class="brandmark" href="{% url 'dossiers:dashboard' %}"><img class="logo-mark" src="{% static 'img/neuralis-logo.png' %}" alt="" width="38" height="38"><span><b>NEURALIS Mobility</b><small>Études à l'étranger</small></span></a>
+      <a class="brandmark" href="{% url 'dossiers:dashboard' %}">{% if user.agency.logo %}<img class="agency-mark" src="{% url 'agency_logo' user.agency.slug %}" alt="" width="38" height="38">{% else %}<span class="agency-mark initials">{{ user.agency.initials }}</span>{% endif %}<span><b>{{ user.agency.name|truncatechars:24 }}</b><small>Espace équipe</small></span></a>
       <nav class="nav-group">
         <a class="nav-link {% if ns == 'dossiers' and name == 'dashboard' %}active{% endif %}" href="{% url 'dossiers:dashboard' %}">{% icon "dashboard" %} Tableau de suivi{% if nav_to_review %}<span class="count" title="Pièces à vérifier">{{ nav_to_review }}</span>{% endif %}</a>
         <a class="nav-link {% if ns == 'dossiers' and name != 'dashboard' and name != 'notifications' and name != 'finances' %}active{% endif %}" href="{% url 'dossiers:list' %}">{% icon "folder" %} Dossiers étudiants</a>
@@ -30,7 +30,7 @@
         {% if "workflows.manage" in agency_perms %}<a class="nav-link {% if ns == 'agencies' and 'workflow' in name %}active{% endif %}" href="{% url 'agencies:workflows' %}">{% icon "route" %} Parcours par destination</a>{% endif %}
         {% if "team.manage" in agency_perms %}<a class="nav-link {% if ns == 'agencies' and name == 'team' or name == 'member_invitation' or 'role' in name %}active{% endif %}" href="{% url 'agencies:team' %}">{% icon "users" %} Équipe et rôles</a>
         {% elif "roles.manage" in agency_perms %}<a class="nav-link {% if 'role' in name %}active{% endif %}" href="{% url 'agencies:roles' %}">{% icon "users" %} Rôles</a>{% endif %}
-        {% if "settings.manage" in agency_perms %}<a class="nav-link {% if ns == 'agencies' and name in 'settings offers offer_create offer_edit fields field_create field_edit templates template_create template_edit receipts web_address' %}active{% endif %}" href="{% url 'agencies:settings' %}">{% icon "sliders" %} Paramètres et portail</a>{% endif %}
+        {% if "settings.manage" in agency_perms %}<a class="nav-link {% if ns == 'agencies' and name in 'settings appearance offers offer_create offer_edit fields field_create field_edit templates template_create template_edit receipts web_address' %}active{% endif %}" href="{% url 'agencies:settings' %}">{% icon "sliders" %} Paramètres et portail</a>{% endif %}
         {% if "integrations.manage" in agency_perms %}<a class="nav-link {% if ns == 'integrations' or name == 'api_keys' %}active{% endif %}" href="{% url 'agencies:api_keys' %}">{% icon "zap" %} Intégrations</a>{% endif %}
         {% if "settings.manage" in agency_perms %}<a class="nav-link {% if ns == 'audit' or name == 'security' and ns == 'agencies' %}active{% endif %}" href="{% url 'agencies:security' %}">{% icon "shield" %} Sécurité</a>
         {% elif "audit.view" in agency_perms %}<a class="nav-link {% if ns == 'audit' %}active{% endif %}" href="{% url 'audit:journal' %}">{% icon "shield" %} Journal d'audit</a>{% endif %}
@@ -38,14 +38,15 @@
       </nav>
       {% endif %}
       <div class="sidebar-foot">
-        <div class="agency-chip">
-          <span class="avatar sq">{% if user.agency.logo %}<img src="{% url 'agency_logo' user.agency.slug %}" alt="">{% else %}{{ user.agency.initials }}{% endif %}</span>
-          <div class="grow"><div class="small strong">{{ user.agency.name }}</div><div class="tiny" style="color:var(--night-ink)">{{ user.agency.get_plan_display }}{% if user.agency.subscription %} · {{ user.agency.subscription.plan.name }}{% endif %}</div></div>
-        </div>
-        {% if user.agency.plan == "trial" %}
+        <a class="agency-chip" href="{% url 'accounts:profile' %}" style="text-decoration:none">
+          <span class="avatar">{{ user|initials }}</span>
+          <div class="grow"><div class="small strong">{{ user.get_full_name|default:user.email|truncatechars:22 }}</div><div class="tiny" style="color:var(--night-ink)">{{ user.role_label }}{% if user.agency.subscription %} · {{ user.agency.subscription.plan.name }}{% endif %}</div></div>
+        </a>
+        {% if user.agency.plan == "trial" and user.agency.trial_ends_at %}
           {% if user.agency.is_operational %}<div class="trial-note">Essai gratuit : {{ user.agency.trial_days_left }} jour{{ user.agency.trial_days_left|pluralize }} restant{{ user.agency.trial_days_left|pluralize }}.{% if "billing.manage" in agency_perms %} <a href="{% url 'billing:overview' %}">Choisir une formule</a>{% endif %}</div>
           {% else %}<div class="trial-note expired">Essai terminé. Vos données sont conservées.{% if "billing.manage" in agency_perms %} <a href="{% url 'billing:overview' %}">Activer l'abonnement</a>{% endif %}</div>{% endif %}
         {% elif not user.agency.is_operational %}<div class="trial-note expired">Abonnement inactif.{% if "billing.manage" in agency_perms %} <a href="{% url 'billing:overview' %}">Régulariser</a>{% endif %}</div>{% endif %}
+        {% if not white_label %}<a class="powered" href="https://neuralis-mali.com" target="_blank" rel="noopener"><img src="{% static 'img/neuralis-logo.png' %}" alt="">Propulsé par NEURALIS Mobility</a>{% endif %}
       </div>
     {% endif %}
     {% endwith %}
@@ -77,6 +78,9 @@
         <div class="dd-menu">
           <div class="dd-head"><div class="strong">{{ user.get_full_name|default:user.email }}</div><div class="tiny muted">{{ user.email }} · {{ user.role_label }}</div></div>
           <a class="dd-item" href="{% url 'accounts:profile' %}">{% icon "user" %} Mon profil</a>
+          <form method="post" action="{% url 'accounts:set_theme' %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <input type="hidden" name="theme" value="{% if ui_theme == 'dark' %}light{% else %}dark{% endif %}">
+            <button class="dd-item" type="submit">{% icon "eye" %} {% if ui_theme == "dark" %}Mode clair{% else %}Mode sombre{% endif %}</button></form>
           <a class="dd-item" href="{% url 'accounts:security' %}">{% icon "shield" %} Sécurité du compte{% if not user.has_2fa %}<span class="badge t-ochre" style="margin-left:auto">2FA</span>{% endif %}</a>
           {% if "settings.manage" in agency_perms %}<a class="dd-item" href="{% url 'agencies:settings' %}">{% icon "sliders" %} Paramètres de l'agence</a>{% endif %}
           {% if "billing.manage" in agency_perms %}<a class="dd-item" href="{% url 'billing:overview' %}">{% icon "card" %} Abonnement</a>{% endif %}

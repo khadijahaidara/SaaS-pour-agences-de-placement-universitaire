@@ -1,11 +1,16 @@
 {% extends "base.html" %}{% load static ui %}
 {% block body %}
 <div class="auth">
-  <section class="auth-art">
-    <div class="cloth" aria-hidden="true"><span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="b4"></span></div>
+  {% with ls=agency_theme.login_style|default:"map" %}
+  <section class="auth-art login-{{ ls }}"{% if ls == "image" and agency_theme.login_image %} style="background-image:linear-gradient(180deg, rgba(8,14,32,.25), rgba(8,14,32,.82)), url('{% url 'agency_asset' theme_agency.slug 'connexion' %}?v={{ agency_theme.updated_at|date:'U' }}')"{% endif %}>
+    {% if ls != "image" %}<div class="cloth" aria-hidden="true"><span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="b4"></span></div>{% endif %}
     <div class="inner">
+      {% if theme_agency %}
+      <a class="brandmark" href="{% url 'home' %}">{% if theme_agency.logo %}<img class="agency-mark" src="{% url 'agency_logo' theme_agency.slug %}" alt="" width="38" height="38">{% else %}<span class="agency-mark initials">{{ theme_agency.initials }}</span>{% endif %}<span><b>{{ theme_agency.name }}</b>{% if not white_label %}<small style="display:block;color:#c9d3ec;font-size:.74rem">avec NEURALIS Mobility</small>{% endif %}</span></a>
+      {% else %}
       <a class="brandmark" href="{% url 'home' %}"><img class="logo-mark" src="{% static 'img/neuralis-logo.png' %}" alt="" width="38" height="38"><b>NEURALIS Mobility</b></a>
-      <div class="routes-wrap" aria-hidden="true">
+      {% endif %}
+      {% if ls == "map" %}<div class="routes-wrap" aria-hidden="true">
         <svg viewBox="20 110 560 440" preserveAspectRatio="xMidYMid meet">
           <defs><radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#2f6bff" stop-opacity=".5"/><stop offset="1" stop-color="#2f6bff" stop-opacity="0"/></radialGradient></defs>
           <circle cx="250" cy="430" r="115" fill="url(#glow)"/>
@@ -26,19 +31,25 @@
             <circle cx="150" cy="420" r="4.5" fill="#fff"/><text x="104" y="404">Dakar</text>
           </g>
         </svg>
-      </div>
+      </div>{% else %}<div class="routes-wrap" aria-hidden="true"></div>{% endif %}
       <div class="pitch">
         {% block pitch %}
+        {% if agency_theme.login_title or agency_theme.login_text %}
+        {% if agency_theme.login_title %}<h1>{{ agency_theme.login_title }}</h1>{% endif %}
+        {% if agency_theme.login_text %}<p>{{ agency_theme.login_text }}</p>{% endif %}
+        {% else %}
         <h1>Chaque étudiant suivi, de Bamako jusqu'à son arrivée.</h1>
         <p>Les pièces, les étapes, les échéances et les paiements de tous vos dossiers au même endroit. Vos étudiants savent où ils en sont sans vous appeler.</p>
         <div class="proof">
           <div><b>Pièces centralisées</b>fini les documents perdus sur WhatsApp</div>
           <div><b>Portail étudiant</b>prochaine action toujours visible</div>
         </div>
+        {% endif %}
         {% endblock %}
       </div>
     </div>
   </section>
+  {% endwith %}
   <section class="auth-form">
     <div class="box {% block box_class %}{% endblock %}">
       {% block content %}{% endblock %}

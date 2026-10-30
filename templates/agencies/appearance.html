@@ -1,0 +1,131 @@
+{% extends "layouts/app.html" %}{% load ui %}{% block title %}Apparence{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Paramètres de l'agence</h1><p>Personnalisez votre espace à l'image de votre agence.</p></div></div>
+{% include "agencies/_tabs.html" %}
+<form method="post" enctype="multipart/form-data" class="appearance" id="appearance-form">{% csrf_token %}
+{% if form.non_field_errors or colors.errors %}<div class="alert-box error">{% icon "alert" %}<div>{{ form.non_field_errors|join:" " }} {% for f in colors %}{{ f.errors|join:" " }}{% endfor %}</div></div>{% endif %}
+<div class="appearance-grid">
+<div class="stack">
+
+  <section class="panel" id="couleurs"><div class="panel-head"><h2>{% icon "sparkle" "sm" %} Couleurs</h2></div><div class="panel-body">
+    <div class="form-grid">
+      <div class="field"><label for="id_c-brand_color">Couleur principale</label><div class="color-field">{{ colors.brand_color }}<span class="code" data-hex-for="id_c-brand_color">{{ colors.brand_color.value }}</span></div><div class="help">Boutons, liens, portail, reçus et courriels.</div></div>
+      <div class="field"><label for="id_a-accent_color">Couleur d'accent</label><div class="color-field">{{ form.accent_color }}<span class="code" data-hex-for="id_a-accent_color">{{ form.accent_color.value }}</span></div><div class="help">{{ form.accent_color.help_text }}</div></div>
+    </div>
+    <div class="label" style="margin:.9rem 0 .4rem">Palettes suggérées</div>
+    <div class="swatches">
+      {% for name, main, accent in palettes %}<button type="button" class="swatch" data-palette="{{ main }},{{ accent }}" title="{{ name }}"><span style="background:{{ main }}"></span><span style="background:{{ accent }}"></span><em>{{ name }}</em></button>{% endfor %}
+    </div>
+    {% if adjusted %}<p class="small" style="color:var(--ochre-ink);margin:.8rem 0 0">{% icon "alert" "sm" %} Votre couleur est très claire : nous l'assombrissons légèrement pour que les textes restent lisibles (contraste {{ contrast }}:1).</p>{% endif %}
+  </div></section>
+
+  <section class="panel" id="equipe"><div class="panel-head"><h2>{% icon "dashboard" "sm" %} Espace équipe</h2></div><div class="panel-body">
+    <div class="label">Barre de navigation</div>
+    <div class="choice-grid">{% for r in form.sidebar_style %}<label class="choice-card">{{ r.tag }}<span class="mini-side side-{{ r.data.value }}"><i></i><i></i><i></i></span><span>{{ r.choice_label }}</span></label>{% endfor %}</div>
+    <div class="label" style="margin-top:1.1rem">Typographie</div>
+    <div class="choice-grid">{% for r in form.font %}<label class="choice-card">{{ r.tag }}<span class="font-sample font-{{ r.data.value }}">Aa</span><span>{{ r.choice_label }}</span></label>{% endfor %}</div>
+    <div class="label" style="margin-top:1.1rem">Angles</div>
+    <div class="choice-grid">{% for r in form.corners %}<label class="choice-card">{{ r.tag }}<span class="corner-sample corner-{{ r.data.value }}"></span><span>{{ r.choice_label }}</span></label>{% endfor %}</div>
+  </div></section>
+
+  <section class="panel" id="connexion"><div class="panel-head"><h2>{% icon "lock" "sm" %} Page de connexion</h2><a class="small" href="{{ portal_url }}" target="_blank" rel="noopener">Voir la page {% icon "external" "sm" %}</a></div><div class="panel-body">
+    <div class="choice-grid">{% for r in form.login_style %}<label class="choice-card">{{ r.tag }}<span class="mini-login login-{{ r.data.value }}"{% if r.data.value == "image" and theme.login_image %} style="background-image:url('{% url 'agency_asset' agency.slug 'connexion' %}?v={{ theme.updated_at|date:'U' }}')"{% endif %}></span><span>{{ r.choice_label }}</span></label>{% endfor %}</div>
+    <div class="form-grid" style="margin-top:1rem">
+      <div class="field span-2{% if form.login_image.errors %} has-error{% endif %}"><span class="label">Photo (paysage, 1600 × 1000 px conseillé)</span>
+        <label class="dropzone">{{ form.login_image }}{% icon "upload" "lg" %}<span><span class="fname" data-empty="{% if theme.login_image %}Remplacer la photo actuelle{% else %}JPG, PNG ou WebP — 6 Mo maximum{% endif %}">{% if theme.login_image %}Remplacer la photo actuelle{% else %}JPG, PNG ou WebP — 6 Mo maximum{% endif %}</span><br><span class="tiny muted">Recadrée et allégée automatiquement.</span></span></label>
+        {% if theme.login_image %}<label class="check-row small">{{ form.remove_login_image }} <span>Retirer la photo actuelle</span></label>{% endif %}
+        {% if form.login_image.errors %}<div class="errors">{{ form.login_image.errors|join:" " }}</div>{% endif %}</div>
+      {% include "includes/field.html" with field=form.login_title span=1 %}
+      {% include "includes/field.html" with field=form.login_text span=1 %}
+    </div>
+  </div></section>
+
+  <section class="panel" id="portail"><div class="panel-head"><h2>{% icon "graduation" "sm" %} Portail étudiant</h2></div><div class="panel-body">
+    <div class="form-grid">
+      <div class="field span-2{% if form.portal_cover.errors %} has-error{% endif %}"><span class="label">Image de couverture</span>
+        {% if theme.portal_cover %}<div class="cover-preview" style="background-image:url('{% url 'agency_asset' agency.slug 'couverture' %}?v={{ theme.updated_at|date:'U' }}')"></div>{% endif %}
+        <label class="dropzone">{{ form.portal_cover }}{% icon "upload" "lg" %}<span><span class="fname" data-empty="Bandeau large (1800 × 500 px conseillé)">Bandeau large (1800 × 500 px conseillé)</span></span></label>
+        {% if theme.portal_cover %}<label class="check-row small">{{ form.remove_portal_cover }} <span>Retirer la couverture</span></label>{% endif %}
+        {% if form.portal_cover.errors %}<div class="errors">{{ form.portal_cover.errors|join:" " }}</div>{% endif %}</div>
+    </div>
+    <div class="toggle-row"><div><div class="strong">Carte « Mon conseiller »</div><div class="small muted">Nom, téléphone et courriel du conseiller sur le portail.</div></div>
+      <label class="switch">{{ form.portal_show_counselor }}<span class="slider"></span></label></div>
+    <div class="label" style="margin:1rem 0 .4rem">Liens utiles (Campus France, logement, assurance…)</div>
+    <div class="links-grid">{% for label, url in form.link_rows %}<div class="link-row">{{ label }}{{ url }}{% if url.errors or label.errors %}<div class="errors">{{ url.errors|join:" " }}{{ label.errors|join:" " }}</div>{% endif %}</div>{% endfor %}</div>
+    <div class="form-grid" style="margin-top:1rem">
+      {% include "includes/field.html" with field=form.facebook %}{% include "includes/field.html" with field=form.instagram %}
+      {% include "includes/field.html" with field=form.tiktok %}{% include "includes/field.html" with field=form.linkedin %}
+      {% include "includes/field.html" with field=form.portal_footer span=1 %}
+    </div>
+  </div></section>
+
+  <section class="panel" id="courriels"><div class="panel-head"><h2>{% icon "mail" "sm" %} Courriels et documents</h2></div><div class="panel-body">
+    <div class="toggle-row"><div><div class="strong">Courriels à l'image de l'agence</div><div class="small muted">Logo, couleur et signature dans les courriels envoyés à vos étudiants et à votre équipe. Les reçus reprennent aussi votre logo et votre couleur.</div></div>
+      <label class="switch">{{ form.branded_emails }}<span class="slider"></span></label></div>
+    {% include "includes/field.html" with field=form.email_signature %}
+  </div></section>
+
+  <section class="panel" id="marque-blanche"><div class="panel-head"><h2>{% icon "shield" "sm" %} Marque blanche</h2>{% if not wl_allowed %}<span class="lock-note">{% icon "sparkle" "sm" %} Formule Business</span>{% endif %}</div><div class="panel-body">
+    <div class="toggle-row"><div><div class="strong">Masquer la marque NEURALIS</div><div class="small muted">Plus aucune mention « NEURALIS Mobility » : titre des pages, icône, page de connexion, portail et courriels portent uniquement le nom de votre agence.</div></div>
+      <label class="switch">{{ form.hide_platform_branding }}<span class="slider"></span></label></div>
+    {% if not wl_allowed and "billing.manage" in agency_perms %}<a class="btn ghost sm" href="{% url 'billing:overview' %}#formules">Voir la formule Business</a>{% endif %}
+  </div></section>
+</div>
+
+<aside class="preview-col">
+  <div class="panel preview-panel">
+    <div class="panel-head"><h2>Aperçu</h2><nav class="seg" role="tablist"><button type="button" class="on" data-preview="app">Équipe</button><button type="button" data-preview="portal">Portail</button><button type="button" data-preview="mail">Courriel</button></nav></div>
+    <div class="panel-body">
+      <div class="theme-preview" id="theme-preview" data-sidebar="{{ theme.sidebar_style }}" data-font="{{ theme.font }}" data-corners="{{ theme.corners }}" style="--p-brand:{{ agency.brand_color }};--p-accent:{{ theme.accent_color }}">
+        <div class="pv pv-app on">
+          <div class="pv-side"><div class="pv-logo">{% if agency.logo %}<img src="{% url 'agency_logo' agency.slug %}" alt="">{% else %}<b>{{ agency.initials }}</b>{% endif %}</div><i class="on"></i><i></i><i></i><i></i></div>
+          <div class="pv-main"><div class="pv-title">Bonjour {{ user.first_name }}</div>
+            <div class="pv-stats"><span><b>12</b>en cours</span><span class="acc"><b>3</b>à vérifier</span></div>
+            <div class="pv-card"><div class="pv-row"></div><div class="pv-row short"></div><div class="pv-btns"><span class="pv-btn">Nouveau dossier</span><span class="pv-badge">En cours</span></div></div></div>
+        </div>
+        <div class="pv pv-portal">
+          <div class="pv-cover"{% if theme.portal_cover %} style="background-image:url('{% url 'agency_asset' agency.slug 'couverture' %}?v={{ theme.updated_at|date:'U' }}')"{% endif %}></div>
+          <div class="pv-pass"><div class="pv-band">Dossier · En cours</div><div class="pv-route">BKO → CDG</div><div class="pv-progress"><span></span></div><div class="pv-next">Prochaine étape : déposer le passeport</div></div>
+        </div>
+        <div class="pv pv-mail">
+          <div class="pv-mail-head"><span class="pv-logo sm">{% if agency.logo %}<img src="{% url 'agency_logo' agency.slug %}" alt="">{% else %}<b>{{ agency.initials }}</b>{% endif %}</span>{{ agency.name }}</div>
+          <div class="pv-mail-body"><p><b>Bonjour Awa,</b></p><p>Votre pièce « Passeport » a été validée. Prochaine étape : le dépôt Campus France.</p><span class="pv-btn">Voir mon dossier</span>
+            <p class="pv-sign" id="pv-sign">{{ theme.email_signature|default:agency.name|linebreaksbr }}</p></div>
+        </div>
+      </div>
+      <p class="tiny muted" style="margin:.8rem 0 0">L'aperçu est indicatif ; enregistrez pour voir le résultat réel.</p>
+    </div>
+  </div>
+</aside>
+</div>
+<div class="save-bar"><span class="small muted">Les changements s'appliquent à toute l'équipe et au portail.</span><button class="btn" type="submit">{% icon "check" "sm" %} Enregistrer l'apparence</button></div>
+</form>
+<script>
+(function () {
+  var pv = document.getElementById("theme-preview"), form = document.getElementById("appearance-form");
+  function sync() {
+    var b = document.getElementById("id_c-brand_color"), a = document.getElementById("id_a-accent_color");
+    pv.style.setProperty("--p-brand", b.value); pv.style.setProperty("--p-accent", a.value);
+    document.querySelectorAll("[data-hex-for]").forEach(function (el) { var i = document.getElementById(el.dataset.hexFor); if (i) el.textContent = i.value.toUpperCase(); });
+    ["sidebar_style", "font", "corners"].forEach(function (n) {
+      var c = form.querySelector('input[name="a-' + n + '"]:checked'); if (c) pv.dataset[{sidebar_style: "sidebar", font: "font", corners: "corners"}[n]] = c.value;
+    });
+    var sig = document.getElementById("id_a-email_signature"); if (sig) document.getElementById("pv-sign").textContent = sig.value || "{{ agency.name|escapejs }}";
+  }
+  form.addEventListener("input", sync); form.addEventListener("change", sync);
+  document.querySelectorAll("[data-palette]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var p = btn.dataset.palette.split(",");
+      document.getElementById("id_c-brand_color").value = p[0]; document.getElementById("id_a-accent_color").value = p[1]; sync();
+    });
+  });
+  document.querySelectorAll("[data-preview]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      document.querySelectorAll("[data-preview]").forEach(function (x) { x.classList.toggle("on", x === btn); });
+      pv.querySelectorAll(".pv").forEach(function (x) { x.classList.toggle("on", x.classList.contains("pv-" + btn.dataset.preview)); });
+    });
+  });
+  sync();
+})();
+</script>
+{% endblock %}

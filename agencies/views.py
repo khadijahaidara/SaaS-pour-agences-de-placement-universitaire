@@ -24,6 +24,8 @@ from .customization import portal_login_url
 from .forms import (
     AgencySettingsForm,
     AgencySignupForm,
+    AppearanceForm,
+    BrandColorsForm,
     ApiKeyForm,
     CustomFieldForm,
     DocumentFormSet,
@@ -40,7 +42,7 @@ from .forms import (
     access_choices,
     apply_access,
 )
-from .models import TRIAL_DAYS, Agency, CustomField, MessageTemplate, ServiceOffer
+from .models import TRIAL_DAYS, Agency, AgencyTheme, CustomField, MessageTemplate, ServiceOffer
 from .services import AgencyCreationError, create_agency
 
 User = get_user_model()
@@ -91,6 +93,53 @@ def agency_logo(request, slug):
     if not content_type.startswith("image/") or content_type == "image/svg+xml":
         raise Http404
     return FileResponse(agency.logo.open("rb"), content_type=content_type)
+
+
+@cache_control(public=True, max_age=86400)
+def agency_asset(request, slug, kind):
+    """Images de marque publiques : photo de la page de connexion, couverture du portail."""
+    theme = get_object_or_404(AgencyTheme.objects.select_related("agency"), agency__slug=slug, agency__is_active=True)
+    field = {"connexion": theme.login_image, "couverture": theme.portal_cover}.get(kind)
+    if not field or not field.storage.exists(field.name):
+        raise Http404
+    return FileResponse(field.open("rb"), content_type="image/jpeg")
+
+
+@agency_perm_required("settings.manage")
+def appearance(request):
+    from .theming import get_theme
+
+    agency = request.user.agency
+    theme = get_theme(agency)
+    if theme.pk is None:
+        theme.save()
+    wl_allowed = has_feature(agency, "white_label")
+    colors = BrandColorsForm(request.POST or None, instance=agency, prefix="c")
+    form = AppearanceForm(request.POST or None, request.FILES or None, instance=theme, prefix="a",
+                          white_label_allowed=wl_allowed)
+    if request.method == "POST" and colors.is_valid() and form.is_valid():
+        with transaction.atomic():
+            colors.save()
+            form.save()
+        record("settings.updated", agency=agency, metadata={"section": "apparence"})
+        messages.success(request, "Apparence enregistrée : elle s'applique immédiatement à toute l'équipe et au portail.")
+        return redirect("agencies:appearance")
+    from .theming import contrast, usable_brand
+
+    brand = agency.brand_color or "#1F4FB8"
+    return render(request, "agencies/appearance.html", {
+        "form": form, "colors": colors, "agency": agency, "theme": theme, "tab": "appearance",
+        "wl_allowed": wl_allowed, "adjusted": usable_brand(brand).lower() != brand.lower(),
+        "contrast": round(contrast(usable_brand(brand), "#ffffff"), 1),
+        "portal_url": portal_login_url(agency, request), "palettes": PALETTES,
+    })
+
+
+PALETTES = [
+    ("Bleu NEURALIS", "#1F4FB8", "#C98A2B"), ("Latérite", "#9C3F1C", "#D9A441"), ("Fleuve", "#0F766E", "#E3A008"),
+    ("Indigo", "#4338CA", "#F59E0B"), ("Bordeaux", "#8E1F3A", "#C9A227"), ("Sahel", "#B45309", "#1E3A8A"),
+    ("Forêt", "#166534", "#CA8A04"), ("Ardoise", "#334155", "#0EA5E9"),
+]
 
 
 @agency_perm_required("settings.manage")

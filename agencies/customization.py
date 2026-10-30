@@ -234,8 +234,12 @@ def record_message(dossier, actor, *, channel: str, subject: str, body: str, tem
     name = f" « {template.name} »" if template else ""
     if channel == MessageTemplate.Channel.EMAIL:
         student = dossier.student
-        queue_email(subject.strip() or f"[{dossier.agency.name}] Votre dossier {dossier.reference}",
-                    body, [student.email])
+        from core.emails import compose
+
+        mail_subject, text, html = compose(dossier.agency, subject=subject.strip() or f"Votre dossier {dossier.reference}",
+                                           body=body, cta_url=reverse("portal:dossier", args=[dossier.pk]),
+                                           cta_label="Voir mon dossier")
+        queue_email(mail_subject, text, [student.email], html)
         log_event(dossier, actor, DossierEvent.Kind.NOTE, f"Courriel envoyé à l'étudiant{name}.", visible_to_student=False)
     else:
         log_event(dossier, actor, DossierEvent.Kind.NOTE, f"Message WhatsApp préparé pour l'étudiant{name}.",

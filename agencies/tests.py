@@ -126,7 +126,10 @@ class MessageAndReceiptTests(BaseTestCase):
         with self.captureOnCommitCallbacks(execute=True):
             self.client.post(reverse("dossiers:send_message", args=[d.pk]),
                              {"channel": "email", "subject": "Votre dossier", "body": "Bonjour Awa"})
-        self.assertTrue(any(m.subject == "Votre dossier" for m in mail.outbox))
+        sent = [m for m in mail.outbox if m.subject.endswith("Votre dossier")]
+        self.assertTrue(sent)
+        self.assertTrue(sent[0].subject.startswith("[Agence A]"))
+        self.assertIn("Bonjour Awa", sent[0].alternatives[0][0])
         resp = self.client.post(reverse("dossiers:send_message", args=[d.pk]), {"channel": "whatsapp", "body": "Salut"})
         self.assertTrue(resp["Location"].startswith("https://wa.me/"))
         self.assertEqual(d.events.filter(visible_to_student=False, message__contains="WhatsApp").count(), 1)

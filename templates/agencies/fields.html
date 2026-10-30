@@ -1,6 +1,6 @@
 {% extends "layouts/app.html" %}{% load ui %}{% block title %}Champs des dossiers{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>Paramètres de l'agence</h1><p>Personnalisez NEURALIS Mobility à l'image de votre agence.</p></div>
+<div class="page-head"><div><h1>Paramètres de l'agence</h1><p>Personnalisez votre espace à l'image de votre agence.</p></div>
 <a class="btn" href="{% url 'agencies:field_create' %}">{% icon "plus" "sm" %} Nouveau champ</a></div>
 {% include "agencies/_tabs.html" %}
 <p class="small muted" style="margin-top:-.4rem">Les informations propres à votre façon de travailler : n° Campus France, moyenne du bac, niveau de langue… Elles apparaissent dans chaque dossier, les exports et l'API.</p>

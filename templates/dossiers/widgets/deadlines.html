@@ -1,0 +1,15 @@
+{% load ui %}<section class="panel">
+  <div class="panel-head"><h2>Échéances à venir</h2><span class="small muted">14 prochains jours</span></div>
+  <div class="panel-body flush">
+  {% if deadlines %}
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th>Date</th><th>Étudiant</th><th>À faire</th></tr></thead>
+      <tbody>{% for item in deadlines %}<tr>
+        <td class="small nowrap"><strong>{{ item.date|date:"d/m" }}</strong><br><span class="muted">{% if item.days == 0 %}aujourd'hui{% elif item.days == 1 %}demain{% else %}dans {{ item.days }} j{% endif %}</span></td>
+        <td><a class="cell-main rowlink" href="{% url 'dossiers:detail' item.dossier.pk %}"><span class="avatar">{{ item.dossier.student|initials }}</span><span><span class="t">{{ item.dossier.student.get_full_name|default:item.dossier.student.email }}</span><br><span class="s">{{ item.dossier.reference }}</span></span></a></td>
+        <td class="small">{% if item.kind == "stage" %}{% icon "route" "sm" %} Étape « {{ item.label }} »{% else %}{% icon "file" "sm" %} Pièce « {{ item.label }} »{% endif %}</td>
+      </tr>{% endfor %}</tbody>
+    </table></div>
+  {% else %}<div class="empty">{% icon "calendar" %}<h3>Aucune échéance proche</h3><p>Les étapes et les pièces attendues dans les 14 jours apparaîtront ici.</p></div>{% endif %}
+  </div>
+</section>

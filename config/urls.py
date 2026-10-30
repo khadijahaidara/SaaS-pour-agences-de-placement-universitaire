@@ -4,7 +4,7 @@ from django.views.generic import TemplateView
 
 from accounts.views import home
 from core.views import health
-from agencies.views import agency_logo, signup
+from agencies.views import agency_asset, agency_logo, signup
 
 admin.site.site_header = "NEURALIS Mobility — administration technique"
 
@@ -13,6 +13,7 @@ urlpatterns = [
     path("health/", health, name="health"),
     path("inscription/", signup, name="signup"),
     path("logo/<slug:slug>/", agency_logo, name="agency_logo"),
+    path("marque/<slug:slug>/<str:kind>/", agency_asset, name="agency_asset"),
     path("conditions/", TemplateView.as_view(template_name="legal/terms.html"), name="terms"),
     path("confidentialite/", TemplateView.as_view(template_name="legal/privacy.html"), name="privacy"),
     path("compte/", include("accounts.urls")),

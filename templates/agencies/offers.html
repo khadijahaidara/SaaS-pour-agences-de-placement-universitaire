@@ -1,6 +1,6 @@
 {% extends "layouts/app.html" %}{% load ui %}{% block title %}Prestations et tarifs{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>Paramètres de l'agence</h1><p>Personnalisez NEURALIS Mobility à l'image de votre agence.</p></div>
+<div class="page-head"><div><h1>Paramètres de l'agence</h1><p>Personnalisez votre espace à l'image de votre agence.</p></div>
 <a class="btn" href="{% url 'agencies:offer_create' %}">{% icon "plus" "sm" %} Nouvelle prestation</a></div>
 {% include "agencies/_tabs.html" %}
 <p class="small muted" style="margin-top:-.4rem">Vos offres et leur échéancier. Appliquées en un clic à un dossier, elles créent les frais et leurs dates d'échéance.</p>

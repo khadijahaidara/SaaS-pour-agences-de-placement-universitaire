@@ -1,0 +1,22 @@
+{% load ui humanize %}<section class="panel">
+    <div class="panel-head"><h2>À traiter en priorité</h2><a class="small" href="{% url 'dossiers:list' %}">Tous les dossiers</a></div>
+    <div class="panel-body flush">
+    {% if priority %}
+      <div class="table-wrap"><table class="data">
+        <thead><tr><th>Étudiant</th><th class="hide-sm">Étape en cours</th><th>Pourquoi</th><th class="hide-sm">Conseiller</th></tr></thead>
+        <tbody>
+        {% for row in priority %}{% with d=row.dossier %}
+          <tr>
+            <td><a class="cell-main rowlink" href="{% url 'dossiers:detail' d.pk %}"><span class="avatar">{{ d.student|initials }}</span><span><span class="t">{{ d.student.get_full_name|default:d.student.email }}</span><br><span class="s">{{ d.destination_country }}{% if d.program %} · {{ d.program|truncatechars:28 }}{% endif %}</span></span></a></td>
+            <td class="hide-sm small">{{ d.current_stage.name|default:"—" }}</td>
+            <td><div class="chips">{% for a in row.alerts %}<span class="chip-alert {% if a.weight < 20 %}soft{% endif %}">{{ a.label }}</span>{% endfor %}</div></td>
+            <td class="hide-sm small">{{ d.counselor.get_full_name|default:"—" }}</td>
+          </tr>
+        {% endwith %}{% endfor %}
+        </tbody>
+      </table></div>
+    {% else %}
+      <div class="empty">{% icon "check" %}<h3>Rien d'urgent</h3><p>Les dossiers en retard, bloqués ou avec des pièces à vérifier apparaîtront ici.</p></div>
+    {% endif %}
+    </div>
+  </section>

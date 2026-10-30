@@ -1,6 +1,6 @@
 {% extends "layouts/app.html" %}{% load ui %}{% block title %}Paramètres de l'agence{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>Paramètres de l'agence</h1><p>Personnalisez NEURALIS Mobility à l'image de votre agence.</p></div></div>
+<div class="page-head"><div><h1>Paramètres de l'agence</h1><p>Personnalisez votre espace à l'image de votre agence.</p></div></div>
 {% include "agencies/_tabs.html" %}
 <div class="grid cols-main">
 <form method="post" enctype="multipart/form-data" class="panel">{% csrf_token %}
@@ -18,14 +18,14 @@
         {% include "includes/field.html" with field=form.currency %}
       </div>
     </div>
-    <div class="form-section"><h2>Portail étudiant</h2>
+    <div class="form-section"><h2>Identité</h2>
       <div class="form-grid">
         <div class="field span-2"><span class="label">Logo</span>
           <div class="row">{% if agency.logo %}<span class="avatar lg sq"><img src="{% url 'agency_logo' agency.slug %}" alt="Logo actuel"></span>{% endif %}
           <label class="dropzone grow">{{ form.logo }}{% icon "upload" "lg" %}<span><span class="fname" data-empty="PNG ou JPG, carré de préférence, 1 Mo maximum">PNG ou JPG, carré de préférence, 1 Mo maximum</span></span></label></div>
           {% if form.logo.errors %}<div class="errors">{{ form.logo.errors|join:" " }}</div>{% endif %}
         </div>
-        {% include "includes/field.html" with field=form.brand_color %}
+        <div class="field"><span class="label">Couleurs et style</span><a class="btn ghost" href="{% url 'agencies:appearance' %}">{% icon "sparkle" "sm" %} Personnaliser l'apparence</a><div class="help">Couleurs, typographie, page de connexion, portail, courriels.</div></div>
         {% include "includes/field.html" with field=form.welcome_message %}
       </div>
     </div>

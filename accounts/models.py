@@ -67,6 +67,20 @@ class User(AbstractUser):
         blank=True,
     )
 
+    class Theme(models.TextChoices):
+        AUTO = "auto", "Automatique (comme l'appareil)"
+        LIGHT = "light", "Clair"
+        DARK = "dark", "Sombre"
+
+    class Density(models.TextChoices):
+        COMFORTABLE = "comfortable", "Confortable"
+        COMPACT = "compact", "Compact"
+
+    ui_theme = models.CharField("thème", max_length=10, choices=Theme.choices, default=Theme.AUTO)
+    ui_density = models.CharField("densité d'affichage", max_length=12, choices=Density.choices,
+                                  default=Density.COMFORTABLE)
+    dashboard_layout = models.JSONField("blocs du tableau de bord", default=list, blank=True)
+
     agency_role = models.ForeignKey(
         "accounts.Role", verbose_name="rôle dans l'agence", on_delete=models.SET_NULL,
         null=True, blank=True, related_name="members",

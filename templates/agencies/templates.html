@@ -1,6 +1,6 @@
 {% extends "layouts/app.html" %}{% load ui %}{% block title %}Modèles de messages{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>Paramètres de l'agence</h1><p>Personnalisez NEURALIS Mobility à l'image de votre agence.</p></div>
+<div class="page-head"><div><h1>Paramètres de l'agence</h1><p>Personnalisez votre espace à l'image de votre agence.</p></div>
 <a class="btn" href="{% url 'agencies:template_create' %}">{% icon "plus" "sm" %} Nouveau modèle</a></div>
 {% include "agencies/_tabs.html" %}
 <p class="small muted" style="margin-top:-.4rem">Vos messages types, remplis automatiquement avec les informations du dossier, à envoyer par WhatsApp ou courriel depuis chaque dossier.</p>

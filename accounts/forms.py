@@ -29,3 +29,10 @@ class StyledPasswordChangeForm(PasswordChangeForm):
         )
         self.fields["new_password1"].widget.attrs["data-strength"] = "1"
         self.fields["new_password2"].help_text = ""
+
+
+class DisplayPrefsForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ["ui_theme", "ui_density"]
+        widgets = {"ui_theme": forms.RadioSelect, "ui_density": forms.RadioSelect}

@@ -13,6 +13,7 @@ FEATURES = [
     ("audit_log", "Journal d'audit"),
     ("enforce_2fa", "Double authentification obligatoire"),
     ("custom_domain", "Domaine personnalisé"),
+    ("white_label", "Marque blanche (sans mention NEURALIS)"),
     ("priority_support", "Support prioritaire"),
 ]
 FEATURE_LABELS = dict(FEATURES)
