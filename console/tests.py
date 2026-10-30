@@ -34,27 +34,73 @@ class SignupTests(TestCase):
     def _data(self, **kw):
         data = {"agency_name": "Horizon Études", "city": "Bamako", "phone": "+223 70 11 22 33",
                 "first_name": "Awa", "last_name": "Traoré", "email": "awa@horizon.ml",
-                "password": "Bamako-Etudes-2027", "accept_terms": "on", "website": ""}
+                "password": "Bamako-Etudes-2027", "accept_terms": "on", "website": "", "plan": "pro", "cycle": "monthly"}
         data.update(kw)
         return data
 
-    def test_self_signup_creates_trial_agency_and_logs_in(self):
-        resp = self.client.post(reverse("signup"), self._data())
-        self.assertRedirects(resp, reverse("dossiers:dashboard"))
+    def test_self_signup_is_pending_until_validated(self):
+        from billing.models import Invoice
+
+        resp = self.client.post(reverse("signup"), self._data(plan="business", cycle="yearly"))
+        self.assertRedirects(resp, reverse("agency_access"), fetch_redirect_response=False)
         agency = Agency.objects.get(name="Horizon Études")
-        self.assertEqual(agency.plan, Agency.Plan.TRIAL)
-        self.assertTrue(agency.is_operational)
-        self.assertEqual(agency.trial_days_left, 14)
+        self.assertEqual(agency.plan, Agency.Plan.PENDING)
+        self.assertEqual(agency.access_status, "pending")
         self.assertEqual(agency.workflow_templates.count(), 4)
+        invoice = Invoice.objects.get(agency=agency)
+        self.assertEqual((invoice.plan.code, invoice.cycle), ("business", "yearly"))
         admin = User.objects.get(email="awa@horizon.ml")
         self.assertEqual(admin.role, User.Role.AGENCY_ADMIN)
-        self.assertContains(self.client.get(reverse("dossiers:dashboard")), "Bien démarrer")
+        # Aucune page de travail tant que NEURALIS n'a pas validé
+        self.assertRedirects(self.client.get(reverse("dossiers:dashboard")), reverse("agency_access"))
+        self.assertRedirects(self.client.get(reverse("dossiers:list")), reverse("agency_access"))
+        page = self.client.get(reverse("agency_access"))
+        self.assertContains(page, "Votre demande est bien reçue")
+        self.assertContains(page, invoice.number)
+        self.assertEqual(self.client.get(reverse("billing:invoice_pdf", args=[invoice.pk])).status_code, 200)
+
+    def test_console_validates_after_payment(self):
+        from billing.models import Invoice
+
+        console = User.objects.create_superuser(email="console@n.ml", password=PWD)
+        self.client.post(reverse("signup"), self._data())
+        agency = Agency.objects.get(name="Horizon Études")
+        self.assertTrue(console.notifications.filter(message__contains="Nouvelle demande").exists())
+        invoice = Invoice.objects.get(agency=agency)
+        admin_client = self.client
+        from django.test import Client
+
+        c = Client()
+        c.force_login(console)
+        self.assertContains(c.get(reverse("console:billing")), "Espaces en attente de validation")
+        c.post(reverse("console:invoice_paid", args=[invoice.pk]), {"method": "orange_money", "reference": "OM-1"})
+        agency.refresh_from_db()
+        self.assertEqual(agency.access_status, "active")
+        self.assertIsNotNone(agency.validated_at)
+        self.assertEqual(agency.paid_until, Invoice.objects.get(pk=invoice.pk).period_end)
+        self.assertEqual(admin_client.get(reverse("dossiers:dashboard")).status_code, 200)
+
+    def test_console_can_grant_trial_or_reject(self):
+        console = User.objects.create_superuser(email="console@n.ml", password=PWD)
+        self.client.post(reverse("signup"), self._data())
+        agency = Agency.objects.get(name="Horizon Études")
+        from django.test import Client
+
+        c = Client()
+        c.force_login(console)
+        c.post(reverse("console:agency_approve", args=[agency.pk]), {"trial_days": "14"})
+        agency.refresh_from_db()
+        self.assertEqual((agency.plan, agency.trial_days_left), (Agency.Plan.TRIAL, 14))
+        c.post(reverse("console:agency_reject", args=[agency.pk]), {"reason": "Agence non agréée"})
+        agency.refresh_from_db()
+        self.assertEqual(agency.access_status, "blocked")
+        self.assertContains(self.client.get(reverse("agency_access")), "Agence non agréée")
 
     def test_signup_links_matching_prospect(self):
         p = Prospect.objects.create(name="Horizon", email="awa@horizon.ml", priority="P1")
         self.client.post(reverse("signup"), self._data())
         p.refresh_from_db()
-        self.assertEqual(p.status, Prospect.Status.TRIAL)
+        self.assertEqual(p.status, Prospect.Status.CONTACTED)
         self.assertIsNotNone(p.agency)
 
     def test_signup_rejects_duplicate_email_weak_password_honeypot_and_terms(self):
@@ -74,7 +120,7 @@ class SignupTests(TestCase):
 
 @override_settings(MEDIA_ROOT=tempfile.mkdtemp(prefix="placement-console-tests-"))
 class SubscriptionTests(TestCase):
-    def test_expired_trial_blocks_new_dossiers_but_keeps_read_access(self):
+    def test_expired_access_blocks_team_but_keeps_student_portal(self):
         agency, admin = create_agency(name="Agence Expirée", admin_email="a@exp.ml", admin_password=PWD)
         wf = agency.workflow_templates.first()
         d, _ = services.create_dossier(agency=agency, actor=admin, student_email="e@exp.ml",
@@ -86,9 +132,27 @@ class SubscriptionTests(TestCase):
             services.create_dossier(agency=agency, actor=admin, student_email="g@exp.ml",
                                     student_first_name="G", student_last_name="H", workflow=wf)
         self.client.force_login(admin)
-        self.assertRedirects(self.client.get(reverse("dossiers:create")), reverse("dossiers:list"))
-        self.assertEqual(self.client.get(reverse("dossiers:detail", args=[d.pk])).status_code, 200)
-        self.assertContains(self.client.get(reverse("dossiers:list")), "Essai terminé")
+        self.assertRedirects(self.client.get(reverse("dossiers:detail", args=[d.pk])), reverse("agency_access"))
+        self.assertContains(self.client.get(reverse("agency_access")), "période d'essai est terminée")
+        self.assertEqual(self.client.get(reverse("billing:overview")).status_code, 200)
+        self.client.force_login(d.student)
+        self.assertContains(self.client.get(reverse("portal:dossier", args=[d.pk])), "temporairement indisponible")
+        doc = d.document_requests.first()
+        with self.assertRaises(services.BusinessRuleError):
+            services.submit_document(doc, d.student, SimpleUploadedFile("a.pdf", b"%PDF-1.4", content_type="application/pdf"))
+
+    def test_paid_agency_has_grace_period_then_blocked(self):
+        agency, admin = create_agency(name="Agence Payée", admin_email="a@pay.ml", admin_password=PWD)
+        agency.plan = Agency.Plan.ACTIVE
+        agency.paid_until = timezone.localdate() - timedelta(days=3)
+        agency.save()
+        self.assertEqual(agency.access_status, "grace")
+        self.client.force_login(admin)
+        self.assertContains(self.client.get(reverse("dossiers:dashboard")), "Abonnement échu")
+        agency.paid_until = timezone.localdate() - timedelta(days=8)
+        agency.save()
+        self.assertEqual(agency.access_status, "blocked")
+        self.assertRedirects(self.client.get(reverse("dossiers:dashboard")), reverse("agency_access"))
 
     def test_agency_settings_brand_color_and_logo(self):
         agency, admin = create_agency(name="Agence Couleur", admin_email="a@col.ml", admin_password=PWD)

@@ -28,6 +28,8 @@ class ApiKeyAuthentication(authentication.BaseAuthentication):
             raise exceptions.AuthenticationFailed("Le compte qui a créé cette clé n'est plus actif.")
         from billing.services import has_feature
 
+        if key.agency.access_status in {"pending", "blocked"}:
+            raise exceptions.PermissionDenied("Accès de l'agence suspendu ou en attente de validation.")
         if not has_feature(key.agency, "api"):
             raise exceptions.PermissionDenied("L'API n'est pas incluse dans la formule de l'agence.")
         if key.last_used_at is None or (timezone.now() - key.last_used_at).total_seconds() > 60:

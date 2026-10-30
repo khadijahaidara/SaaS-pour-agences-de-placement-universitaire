@@ -56,10 +56,13 @@ def _client_ip(request) -> str:
 
 
 def signup(request):
-    """Création d'un espace agence en libre-service, avec essai gratuit."""
+    """Demande d'ouverture d'un espace agence : l'accès est ouvert par NEURALIS après paiement."""
     if request.user.is_authenticated:
         return redirect("home")
-    form = AgencySignupForm(request.POST or None)
+    from billing.models import Plan
+
+    plans = list(Plan.objects.filter(is_public=True))
+    form = AgencySignupForm(request.POST or None, initial={"plan": request.GET.get("formule", "pro")})
     if request.method == "POST":
         key = f"signup-ip:{_client_ip(request)}"
         attempts = cache.get(key, 0)
@@ -71,16 +74,18 @@ def signup(request):
                 agency, admin = create_agency(
                     name=cd["agency_name"], city=cd["city"], phone=cd["phone"], admin_email=cd["email"],
                     admin_first_name=cd["first_name"], admin_last_name=cd["last_name"],
-                    admin_password=cd["password"], source="self_signup",
+                    admin_password=cd["password"], source="self_signup", pending=True,
+                    plan_code=cd["plan"], cycle=cd["cycle"],
                 )
             except AgencyCreationError as e:
                 form.add_error("email", str(e))
             else:
                 cache.set(key, attempts + 1, 3600)
                 login(request, admin, backend="django.contrib.auth.backends.ModelBackend")
-                messages.success(request, f"Bienvenue ! Votre espace « {agency.name} » est prêt. Essai gratuit de {TRIAL_DAYS} jours.")
-                return redirect("dossiers:dashboard")
-    return render(request, "agencies/signup.html", {"form": form, "trial_days": TRIAL_DAYS})
+                messages.success(request, f"Demande enregistrée pour « {agency.name} ». Votre facture est prête : "
+                                          "l'espace s'ouvre dès la validation de votre paiement par NEURALIS.")
+                return redirect("agency_access")
+    return render(request, "agencies/signup.html", {"form": form, "plans": plans})
 
 
 @cache_control(public=True, max_age=3600)
@@ -93,6 +98,40 @@ def agency_logo(request, slug):
     if not content_type.startswith("image/") or content_type == "image/svg+xml":
         raise Http404
     return FileResponse(agency.logo.open("rb"), content_type=content_type)
+
+
+def access_status(request):
+    """Page affichée à l'équipe tant que l'espace n'est pas validé ou quand l'accès est suspendu."""
+    from django.contrib.auth.views import redirect_to_login
+
+    if not request.user.is_authenticated:
+        return redirect_to_login(request.get_full_path())
+    user = request.user
+    if not user.is_agency_staff:
+        return redirect("home")
+    agency = user.agency
+    status = agency.access_status
+    if status in {"active", "grace"}:
+        return redirect("dossiers:dashboard")
+    from billing.models import Invoice
+    from billing.services import get_subscription
+
+    from django.conf import settings as dj_settings
+
+    open_invoice = Invoice.objects.filter(agency=agency, status=Invoice.Status.ISSUED).select_related("plan").first()
+    if status == "pending":
+        reason = "pending"
+    elif agency.plan == Agency.Plan.SUSPENDED or not agency.is_active:
+        reason = "suspended"
+    elif agency.plan == Agency.Plan.TRIAL:
+        reason = "trial_ended"
+    else:
+        reason = "expired"
+    return render(request, "agencies/access.html", {
+        "agency": agency, "status": status, "reason": reason, "open_invoice": open_invoice,
+        "sub": get_subscription(agency), "issuer": dj_settings.BILLING_ISSUER,
+        "can_pay": user.has_agency_perm("billing.manage"),
+    })
 
 
 @cache_control(public=True, max_age=86400)

@@ -48,3 +48,35 @@ class TenantMiddleware:
             messages.error(request, f"Ce compte n'appartient pas à {request.tenant.name}. Connectez-vous avec un compte de cette agence.")
             return redirect("accounts:login")
         return self.get_response(request)
+
+
+ACCESS_ALLOWED_PREFIXES = (
+    "/agence/acces/", "/agence/abonnement/", "/compte/", "/static/", "/logo/", "/marque/", "/health/",
+    "/conditions/", "/confidentialite/",
+)
+
+
+class AccessGateMiddleware:
+    """L'équipe d'une agence n'accède à son espace que si NEURALIS l'a validé et que l'abonnement est à jour.
+
+    - « pending » : inscription en ligne non encore validée (après paiement) ;
+    - « blocked » : suspendue, essai terminé ou période payée dépassée de plus de GRACE_DAYS jours.
+    Seules restent accessibles la page d'accès, l'abonnement (pour payer) et le compte personnel.
+    Les étudiants gardent leur portail en lecture seule (dépôts refusés par les services).
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        user = getattr(request, "user", None)
+        if (user is not None and user.is_authenticated and user.is_agency_staff and user.agency_id
+                and not request.path.startswith(ACCESS_ALLOWED_PREFIXES)
+                and user.agency.access_status in {"pending", "blocked"}):
+            if request.path.startswith("/api/"):
+                from django.http import JsonResponse
+
+                return JsonResponse({"detail": "Accès de l'agence suspendu ou en attente de validation.",
+                                     "code": "agency_inactive"}, status=403)
+            return redirect("agency_access")
+        return self.get_response(request)

@@ -21,6 +21,9 @@ def unread_notifications(request):
     elif user.role == user.Role.PLATFORM_ADMIN:
         from console.models import Prospect
 
+        from agencies.models import Agency
+
+        ctx["nav_pending_agencies"] = Agency.objects.filter(plan=Agency.Plan.PENDING, is_active=True).count()
         ctx["nav_due"] = Prospect.objects.filter(next_follow_up__lte=timezone.localdate()).exclude(
             status__in=Prospect.CLOSED).count()
     return ctx

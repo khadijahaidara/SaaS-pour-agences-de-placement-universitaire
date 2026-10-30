@@ -61,6 +61,20 @@ et dans les services (règles métier). Un membre ne peut jamais accorder une pe
 | **Rôles et permissions fins** | Voir ci-dessus ; rôles personnalisés à partir de la formule Pro |
 | **Webhooks et intégrations** | 8 événements (`dossier.created`, `dossier.stage_changed`, `dossier.status_changed`, `dossier.assigned`, `document.submitted`, `document.reviewed`, `payment.recorded`, `payment.cancelled`), signature HMAC-SHA256, 6 tentatives (1 min → 6 h), suspension après 15 échecs, journal des livraisons, test et renvoi, protection SSRF ; import CSV des dossiers avec aperçu ligne par ligne |
 
+### Ouverture et contrôle d'accès des agences
+
+1. L'agence s'inscrit en ligne (`/inscription/`) et choisit sa formule (mensuelle ou annuelle) : son espace est créé
+   **en attente de validation** et une facture est émise. Le responsable ne voit qu'une page « Demande en cours »
+   (facture PDF, modalités de paiement) ; l'équipe NEURALIS est notifiée.
+2. Après réception du paiement, NEURALIS valide dans **Console → Facturation → Espaces en attente** :
+   « Paiement reçu — ouvrir » (la période payée démarre ce jour-là), « Accorder un essai de 14 jours » ou « Refuser »
+   (motif communiqué à l'agence).
+3. À l'échéance, l'agence a **7 jours de grâce** (bandeau d'alerte) ; ensuite l'accès de l'équipe et l'API sont
+   bloqués et seules restent accessibles la page d'accès et l'abonnement pour payer. Les étudiants gardent leur portail
+   en lecture seule (dépôts suspendus). Les données ne sont jamais supprimées.
+
+Les espaces créés par NEURALIS (console, `create_agency`) démarrent directement en essai.
+
 | Formule | Prix / mois | Dossiers en cours | Équipe | Stockage | API, webhooks, rôles, audit, 2FA obligatoire | Domaine perso. |
 |---|---|---|---|---|---|---|
 | Starter | 25 000 FCFA | 50 | 3 | 2 Go | — | — |
@@ -205,7 +219,7 @@ Pour créer un compte d'équipe NEURALIS : `python manage.py createsuperuser`.
 python manage.py test
 ```
 
-113 tests couvrent l'apparence (palette lisible, images, marque blanche, courriels), les préférences d'affichage, le tableau de bord modulable, les formules et quotas, la facturation (PDF, encaissement, renouvellement), les rôles et l'absence d'élévation de privilèges, la 2FA, le blocage des connexions, les sessions, le journal d'audit, les webhooks (signature, relances, suspension, SSRF), l'import CSV, le parcours prioritaire (services et HTTP), l'isolation entre agences, conseillers et étudiants,
+116 tests couvrent la validation des espaces (inscription en attente, ouverture après paiement, essai accordé, refus, délai de grâce, blocage), l'apparence (palette lisible, images, marque blanche, courriels), les préférences d'affichage, le tableau de bord modulable, les formules et quotas, la facturation (PDF, encaissement, renouvellement), les rôles et l'absence d'élévation de privilèges, la 2FA, le blocage des connexions, les sessions, le journal d'audit, les webhooks (signature, relances, suspension, SSRF), l'import CSV, le parcours prioritaire (services et HTTP), l'isolation entre agences, conseillers et étudiants,
 la protection des fichiers, la validation des dépôts, les règles de paiement, les alertes, l'activation des comptes, l'inscription libre (anti-abus, essai), le blocage à expiration, l'import de prospects, le pipeline commercial et la conversion en agence.
 La CI GitHub (`.github/workflows/tests.yml`) les exécute sur PostgreSQL à chaque push.
 

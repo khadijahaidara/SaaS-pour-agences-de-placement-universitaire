@@ -46,6 +46,9 @@ ACTIONS = {
     "billing.invoice_issued": "Facture émise",
     "billing.invoice_paid": "Facture payée",
     "billing.invoice_void": "Facture annulée",
+    "agency.approved": "Accès de l'agence validé",
+    "agency.rejected": "Demande d'espace refusée",
+    "agency.suspended": "Agence suspendue",
 }
 
 ACTION_GROUPS = [

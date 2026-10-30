@@ -24,10 +24,19 @@ class AgencySignupForm(StyledFormMixin, forms.Form):
     password = forms.CharField(label="Mot de passe", strip=False,
                                widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
                                help_text="8 caractères minimum, pas uniquement des chiffres.")
+    plan = forms.ChoiceField(label="Formule", choices=[])
+    cycle = forms.ChoiceField(label="Facturation", choices=[("monthly", "Mensuelle"), ("yearly", "Annuelle — 2 mois offerts")],
+                              initial="monthly")
     accept_terms = forms.BooleanField(label="J'accepte les conditions d'utilisation et la politique de confidentialité",
                                       help_text="")
     # Champ piège invisible : rempli uniquement par les robots.
     website = forms.CharField(required=False, widget=forms.TextInput(attrs={"tabindex": "-1", "autocomplete": "off"}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from billing.models import Plan
+
+        self.fields["plan"].choices = [(p.code, p.name) for p in Plan.objects.filter(is_public=True)]
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()

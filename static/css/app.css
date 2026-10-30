@@ -849,3 +849,17 @@ html[data-theme="dark"] .dd-item { color: var(--ink); }
 .density-sample { height: 54px; border-radius: 6px; background: var(--surface-2); display: grid; align-content: center; gap: 6px; padding: 0 12px; }
 .density-sample i { display: block; height: 5px; border-radius: 3px; background: var(--line-2); }
 .ds-compact { gap: 3px; } .ds-compact i { height: 4px; }
+
+/* Validation de l'accès des agences */
+.plan-pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
+.plan-pick .choice-card { gap: .2rem; }
+.access-steps { list-style: none; padding: 0; margin: 1.2rem 0; display: grid; gap: .8rem; }
+.access-steps li { display: flex; gap: .8rem; align-items: flex-start; }
+.access-steps li > span { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex: none; border: 2px solid var(--line-2); font-weight: 700; font-size: .85rem; color: var(--muted); }
+.access-steps li.done > span { background: var(--ok); border-color: var(--ok); color: #fff; }
+.access-steps li.now > span { border-color: var(--ochre); color: var(--ochre-ink); background: var(--ochre-50); }
+.invoice-card { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; padding: 1rem 1.2rem; border: 1px solid var(--line); border-radius: var(--radius-l); background: var(--surface-2); }
+.invoice-card .amount { font-family: var(--font-display); font-size: 1.6rem; font-weight: 700; }
+.grace-banner { display: flex; gap: .8rem; align-items: center; padding: .7rem 1rem; margin-bottom: 1rem; border-radius: var(--radius); background: var(--ochre-50); color: var(--ochre-ink); font-size: .9rem; }
+@media (max-width: 700px) { .plan-pick { grid-template-columns: 1fr; } }
+.badge.s-pending { background: var(--ochre-50); color: var(--ochre-ink); border-color: transparent; }

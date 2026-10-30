@@ -107,6 +107,7 @@ MIDDLEWARE = [
     "agencies.middleware.TenantMiddleware",
     "audit.middleware.RequestContextMiddleware",
     "accounts.middleware.SecurityMiddleware",
+    "agencies.middleware.AccessGateMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 

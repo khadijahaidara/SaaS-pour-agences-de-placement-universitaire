@@ -9,7 +9,7 @@
         <a class="nav-link {% if ns == 'console' and name == 'dashboard' %}active{% endif %}" href="{% url 'console:dashboard' %}">{% icon "dashboard" %} Vue d'ensemble</a>
         <a class="nav-link {% if ns == 'console' and 'prospect' in name %}active{% endif %}" href="{% url 'console:prospects' %}">{% icon "target" %} Prospects{% if nav_due %}<span class="count" title="Relances dues">{{ nav_due }}</span>{% endif %}</a>
         <a class="nav-link {% if ns == 'console' and 'agenc' in name %}active{% endif %}" href="{% url 'console:agencies' %}">{% icon "building" %} Agences clientes</a>
-        <a class="nav-link {% if ns == 'console' and name == 'billing' %}active{% endif %}" href="{% url 'console:billing' %}">{% icon "card" %} Facturation</a>
+        <a class="nav-link {% if ns == 'console' and name == 'billing' %}active{% endif %}" href="{% url 'console:billing' %}">{% icon "card" %} Facturation{% if nav_pending_agencies %}<span class="count" title="Espaces à valider">{{ nav_pending_agencies }}</span>{% endif %}</a>
       </nav>
       <nav class="nav-group">
         <div class="nav-title">Outils</div>
@@ -90,6 +90,7 @@
       </details>
     </header>
     <main class="content" id="contenu">
+      {% if user.is_agency_staff and user.agency.access_status == "grace" %}<div class="grace-banner">{% icon "alert" %}<div class="grow"><strong>Abonnement échu le {{ user.agency.paid_until|date:"d/m/Y" }}.</strong> Sans paiement, l'accès de l'équipe sera suspendu le {{ user.agency.grace_ends_on|date:"d/m/Y" }}.</div>{% if "billing.manage" in agency_perms %}<a class="btn sm" href="{% url 'billing:overview' %}">Régler maintenant</a>{% endif %}</div>{% endif %}
       {% block content %}{% endblock %}
     </main>
   </div>

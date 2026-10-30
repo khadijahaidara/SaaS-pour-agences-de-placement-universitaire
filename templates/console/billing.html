@@ -9,6 +9,32 @@
   <div class="stat {% if stats.overdue %}tone-ochre{% endif %}"><span class="ic-wrap">{% icon "receipt" %}</span><div><div class="v">{{ stats.due|money:"" }}</div><div class="l">à encaisser · {{ stats.overdue }} en retard</div></div></div>
   <div class="stat"><span class="ic-wrap">{% icon "cowrie" %}</span><div><div class="v">{{ stats.collected_month|money:"" }}</div><div class="l">encaissé ce mois</div></div></div>
 </div>
+{% if pending_agencies %}
+<section class="panel" style="margin-bottom:1.1rem;border-color:var(--ochre)">
+  <div class="panel-head"><h2>Espaces en attente de validation</h2><span class="badge t-ochre">{{ pending_agencies|length }}</span></div>
+  <div class="table-wrap"><table class="data"><tbody>{% for a in pending_agencies %}<tr>
+    <td><span class="strong">{{ a.name }}</span><br><span class="tiny muted">{{ a.city }} · {{ a.admin.get_full_name }} · {{ a.admin.email }}{% if a.phone %} · {{ a.phone }}{% endif %}</span></td>
+    <td class="small">Formule <strong>{{ a.subscription.plan.name }}</strong> · {{ a.subscription.get_cycle_display|lower }}<br><span class="tiny muted">demande du {{ a.created_at|date:"d/m/Y H:i" }}</span></td>
+    <td class="small">{% if a.open_invoice %}<a href="{% url 'console:invoice_pdf' a.open_invoice.pk %}" target="_blank">{{ a.open_invoice.number }}</a><br><span class="money">{{ a.open_invoice.amount|money:"FCFA" }}</span>{% else %}<span class="muted">aucune facture</span>{% endif %}</td>
+    <td class="num"><div class="row" style="justify-content:flex-end">
+      {% if a.open_invoice %}<button class="btn sm" type="button" data-open-modal="m-open-{{ a.pk }}">{% icon "check" "sm" %} Paiement reçu — ouvrir</button>{% endif %}
+      <details class="dd"><summary class="icon-btn" aria-label="Autres actions">{% icon "more" %}</summary><div class="dd-menu">
+        <form method="post" action="{% url 'console:agency_approve' a.pk %}">{% csrf_token %}<input type="hidden" name="trial_days" value="14"><button class="dd-item" type="submit">{% icon "clock" %} Accorder un essai de 14 jours</button></form>
+        <button class="dd-item danger" type="button" data-open-modal="m-reject-{{ a.pk }}">{% icon "x" %} Refuser la demande</button>
+      </div></details></div>
+      {% if a.open_invoice %}<dialog class="modal" id="m-open-{{ a.pk }}"><div class="modal-head"><div><h2>Ouvrir l'espace de {{ a.name }}</h2><p>Confirme la réception de {{ a.open_invoice.amount|money:"FCFA" }} (facture {{ a.open_invoice.number }}). La période payée démarre aujourd'hui et l'agence est prévenue.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+        <form class="modal-body" method="post" action="{% url 'console:invoice_paid' a.open_invoice.pk %}">{% csrf_token %}<div class="form-grid">
+          <div class="field"><label>Mode de paiement</label><select class="input" name="method">{% for v, l in methods %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+          <div class="field"><label>Date</label><input class="input" type="date" name="paid_on" value="{{ today|date:'Y-m-d' }}"></div>
+          <div class="field span-2"><label>Référence (transaction, virement)</label><input class="input" name="reference" maxlength="100"></div></div>
+          <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn" type="submit">Valider et ouvrir l'accès</button></div></form></dialog>{% endif %}
+      <dialog class="modal" id="m-reject-{{ a.pk }}"><div class="modal-head"><div><h2>Refuser la demande de {{ a.name }}</h2><p>La facture est annulée et le responsable est prévenu avec ce motif.</p></div><button class="icon-btn" data-close-modal aria-label="Fermer">{% icon "x" %}</button></div>
+        <form class="modal-body" method="post" action="{% url 'console:agency_reject' a.pk %}">{% csrf_token %}<div class="field"><label>Motif</label><input class="input" name="reason" required maxlength="255" placeholder="Ex. : agence non agréée, informations incomplètes…"></div>
+          <div class="form-actions"><button class="btn ghost" type="button" data-close-modal>Annuler</button><button class="btn danger" type="submit">Refuser</button></div></form></dialog>
+    </td>
+  </tr>{% endfor %}</tbody></table></div>
+</section>
+{% endif %}
 {% if requests %}
 <section class="panel" style="margin-bottom:1.1rem;border-color:var(--river)">
   <div class="panel-head"><h2>Demandes à traiter</h2><span class="badge t-river">{{ requests|length }}</span></div>

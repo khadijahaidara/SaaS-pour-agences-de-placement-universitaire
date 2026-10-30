@@ -290,6 +290,8 @@ def submit_document(doc: DocumentRequest, user, uploaded_file) -> DocumentFile:
     _ensure_open(dossier)
     if doc.status == DocumentRequest.Status.APPROVED:
         raise BusinessRuleError("Cette pièce est déjà validée.")
+    if not dossier.agency.is_operational:
+        raise BusinessRuleError("L'espace de l'agence est suspendu : dépôt temporairement indisponible.")
     from billing.services import check_quota
 
     check_quota(dossier.agency, "storage", extra_bytes=uploaded_file.size)

@@ -22,7 +22,9 @@
   </div>
 </header>
 {% if agency_theme.portal_cover %}<div class="portal-cover" style="background-image:url('{% url 'agency_asset' portal_agency.slug 'couverture' %}?v={{ agency_theme.updated_at|date:'U' }}')" role="img" aria-label="{{ portal_agency.name }}"></div>{% endif %}
-<main class="portal-main {% if agency_theme.portal_cover %}with-cover{% endif %}">{% block content %}{% endblock %}</main>
+<main class="portal-main {% if agency_theme.portal_cover %}with-cover{% endif %}">
+{% if not portal_agency.is_operational %}<div class="grace-banner">{% icon "lock" %}<div>Votre dossier reste consultable, mais le dépôt de pièces est temporairement indisponible. Contactez {{ portal_agency.name }}{% if portal_agency.phone %} au {{ portal_agency.phone }}{% endif %}.</div></div>{% endif %}
+{% block content %}{% endblock %}</main>
 <footer class="portal-foot">
   <div class="inner">
     <div><strong>{{ portal_agency.name }}</strong>{% if agency_theme.portal_footer %}<div class="small muted">{{ agency_theme.portal_footer }}</div>{% endif %}

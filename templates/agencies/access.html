@@ -1,0 +1,34 @@
+{% extends "layouts/auth.html" %}{% load ui %}{% block title %}{% if reason == "pending" %}Demande en cours{% else %}Accès suspendu{% endif %}{% endblock %}
+{% block box_class %}wide{% endblock %}
+{% block content %}
+{% if reason == "pending" %}
+  <span class="badge t-ochre">{% icon "clock" "sm" %} En attente de validation</span>
+  <h1 style="margin-top:.8rem">Votre demande est bien reçue</h1>
+  <p class="lead">Votre espace « {{ agency.name }} » est prêt. Il s'ouvrira dès que l'équipe NEURALIS aura reçu et validé votre paiement.</p>
+  <ol class="access-steps">
+    <li class="done"><span>{% icon "check" "sm" %}</span><div><strong>Demande envoyée</strong><div class="small muted">Formule {{ sub.plan.name }} · {{ sub.get_cycle_display|lower }}</div></div></li>
+    <li class="{% if open_invoice %}now{% endif %}"><span>2</span><div><strong>Réglez la facture</strong><div class="small muted">{{ issuer.payment }}</div></div></li>
+    <li><span>3</span><div><strong>Validation NEURALIS</strong><div class="small muted">Sous 24 h ouvrées après réception ; vous êtes prévenu par courriel.</div></div></li>
+  </ol>
+{% else %}
+  <span class="badge t-danger">{% icon "lock" "sm" %} Accès suspendu</span>
+  <h1 style="margin-top:.8rem">{% if reason == "expired" %}Votre abonnement est arrivé à échéance{% elif reason == "trial_ended" %}Votre période d'essai est terminée{% else %}L'accès à votre espace est suspendu{% endif %}</h1>
+  <p class="lead">{% if reason == "suspended" and agency.review_note %}Motif : {{ agency.review_note }}.{% elif reason == "expired" %}La période payée s'est terminée le {{ agency.paid_until|date:"d/m/Y" }}.{% endif %}
+    Vos dossiers et vos documents sont conservés en toute sécurité ; vos étudiants voient toujours leur portail. L'accès sera rétabli dès la validation de votre paiement par NEURALIS.</p>
+{% endif %}
+
+{% if open_invoice %}
+<div class="invoice-card">
+  <div><div class="tiny muted">Facture {{ open_invoice.number }}</div><div class="amount">{{ open_invoice.amount|money:"FCFA" }}</div>
+    <div class="small muted">à régler avant le {{ open_invoice.due_on|date:"d/m/Y" }} · référence de paiement : <strong>{{ open_invoice.number }}</strong></div></div>
+  {% if can_pay %}<a class="btn" href="{% url 'billing:invoice_pdf' open_invoice.pk %}" target="_blank">{% icon "download" "sm" %} Facture PDF</a>{% endif %}
+</div>
+{% endif %}
+
+<div class="row" style="margin-top:1.2rem;flex-wrap:wrap">
+  {% if can_pay %}<a class="btn ghost" href="{% url 'billing:overview' %}">{% icon "card" "sm" %} Abonnement et factures</a>{% endif %}
+  <a class="btn ghost" href="mailto:{{ issuer.email }}?subject=Paiement {{ open_invoice.number|default:agency.name }}">{% icon "mail" "sm" %} Envoyer la preuve de paiement</a>
+  <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="btn subtle" type="submit">{% icon "logout" "sm" %} Se déconnecter</button></form>
+</div>
+{% if not can_pay %}<p class="small muted" style="margin-top:1rem">Le responsable de votre agence a reçu la facture : rapprochez-vous de lui.</p>{% endif %}
+{% endblock %}

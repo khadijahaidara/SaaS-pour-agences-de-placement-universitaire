@@ -113,3 +113,13 @@ class PlanTests(BaseTestCase):
         self.assertEqual(self.client.get("/api/v1/me/", HTTP_AUTHORIZATION=f"Api-Key {raw}").status_code, 200)
         self.set_plan("starter")
         self.assertEqual(self.client.get("/api/v1/me/", HTTP_AUTHORIZATION=f"Api-Key {raw}").status_code, 403)
+
+
+class AccessGateApiTests(BaseTestCase):
+    def test_api_refused_when_agency_blocked(self):
+        from api.models import ApiKey
+
+        _, raw = ApiKey.generate(agency=self.agency, name="Site", created_by=self.admin)
+        Agency.objects.filter(pk=self.agency.pk).update(plan=Agency.Plan.SUSPENDED)
+        resp = self.client.get("/api/v1/me/", HTTP_AUTHORIZATION=f"Api-Key {raw}")
+        self.assertEqual(resp.status_code, 403)

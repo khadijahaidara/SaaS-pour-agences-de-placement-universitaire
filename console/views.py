@@ -270,7 +270,13 @@ def agency_plan(request, pk):
         agency.plan = Agency.Plan.ACTIVE if agency.paid_until and agency.paid_until >= today else Agency.Plan.TRIAL
         if agency.plan == Agency.Plan.TRIAL and (not agency.trial_ends_at or agency.trial_ends_at < timezone.now()):
             agency.trial_ends_at = timezone.now() + timedelta(days=7)
+    if action != "suspend" and agency.validated_at is None:
+        agency.validated_at, agency.validated_by = timezone.now(), request.user
     agency.save()
+    from audit.services import record
+
+    record("agency.suspended" if action == "suspend" else "agency.approved", agency=agency, actor=request.user,
+           metadata={"action": dict(AgencyPlanForm.ACTIONS)[action]})
     messages.success(request, f"{agency.name} : {dict(AgencyPlanForm.ACTIONS)[action].lower()} — fait.")
     return redirect("console:agencies")
 
@@ -299,7 +305,13 @@ def billing(request):
         .aggregate(s=Sum("amount"))["s"] or 0,
     }
     by_plan = list(active_subs.values("plan__name").annotate(n=Count("id")).order_by("-n"))
+    pending_agencies = list(Agency.objects.filter(plan=Agency.Plan.PENDING, is_active=True)
+                            .select_related("subscription__plan").order_by("created_at"))
+    for a in pending_agencies:
+        a.open_invoice = a.invoices.filter(status=Invoice.Status.ISSUED).first()
+        a.admin = a.users.filter(role="agency_admin").first()
     return render(request, "console/billing.html", {
+        "pending_agencies": pending_agencies,
         "page": page, "status": status, "statuses": Invoice.Status.choices, "stats": stats, "by_plan": by_plan,
         "requests": PlanChangeRequest.objects.filter(status=PlanChangeRequest.Status.PENDING)
         .select_related("agency", "plan", "requested_by"),
@@ -390,3 +402,32 @@ def agency_tier(request, pk):
     change_plan(agency, plan=plan, cycle=cycle, actor=request.user)
     messages.success(request, f"{agency.name} passe en formule {plan.name}.")
     return redirect("console:agencies")
+
+
+
+@require_POST
+@platform_admin_required
+def agency_approve(request, pk):
+    """Ouvre l'accès sans paiement (essai accordé par NEURALIS)."""
+    from agencies.services import approve_agency
+
+    agency = get_object_or_404(Agency, pk=pk)
+    days = int(request.POST.get("trial_days") or 14)
+    approve_agency(agency, actor=request.user, trial_days=max(1, min(days, 60)))
+    messages.success(request, f"{agency.name} : essai de {days} jours accordé, l'équipe est prévenue.")
+    return redirect(request.POST.get("next") or "console:billing")
+
+
+@require_POST
+@platform_admin_required
+def agency_reject(request, pk):
+    from agencies.services import reject_agency
+
+    agency = get_object_or_404(Agency, pk=pk)
+    reason = request.POST.get("reason", "").strip()
+    if not reason:
+        messages.error(request, "Indiquez le motif du refus.")
+    else:
+        reject_agency(agency, actor=request.user, reason=reason)
+        messages.success(request, f"Demande de {agency.name} refusée.")
+    return redirect("console:billing")

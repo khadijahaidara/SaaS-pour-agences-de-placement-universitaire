@@ -141,18 +141,28 @@ def mark_paid(invoice: Invoice, *, actor, method: str, reference: str = "", paid
         raise BusinessRuleError("Seule une facture à payer peut être marquée payée.")
     invoice.status = Invoice.Status.PAID
     invoice.paid_on = paid_on or timezone.localdate()
+    agency = invoice.agency
+    # Première ouverture ou accès expiré : la période payée démarre le jour du paiement.
+    if agency.paid_until is None or agency.paid_until < invoice.paid_on:
+        if invoice.period_start < invoice.paid_on:
+            invoice.period_start = invoice.paid_on
+            invoice.period_end = add_period(invoice.paid_on, invoice.cycle)
     invoice.payment_method = method
     invoice.payment_reference = reference.strip()
     invoice.save()
 
-    agency = invoice.agency
     sub = get_subscription(agency)
     sub.plan, sub.cycle = invoice.plan, invoice.cycle
     sub.save(update_fields=["plan", "cycle", "updated_at"])
     agency._subscription_cache = sub
     agency.plan = agency.Plan.ACTIVE
     agency.paid_until = max(filter(None, [agency.paid_until, invoice.period_end]))
-    agency.save(update_fields=["plan", "paid_until"])
+    agency.review_note = ""
+    fields = ["plan", "paid_until", "review_note"]
+    if agency.validated_at is None:
+        agency.validated_at, agency.validated_by = timezone.now(), actor
+        fields += ["validated_at", "validated_by"]
+    agency.save(update_fields=fields)
     PlanChangeRequest.objects.filter(agency=agency, status=PlanChangeRequest.Status.PENDING, plan=invoice.plan).update(
         status=PlanChangeRequest.Status.DONE, handled_at=timezone.now())
 

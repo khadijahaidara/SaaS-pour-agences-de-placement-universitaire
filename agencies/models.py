@@ -8,6 +8,7 @@ from django.db import models
 from django.utils import timezone
 
 TRIAL_DAYS = 14
+GRACE_DAYS = 7  # jours de tolérance après la fin de période payée, avant blocage
 
 
 def validate_hex_color(value: str) -> None:
@@ -34,6 +35,7 @@ class Agency(models.Model):
     """Une agence cliente du SaaS (locataire). Toutes les données métier y sont rattachées."""
 
     class Plan(models.TextChoices):
+        PENDING = "pending", "En attente de validation"
         TRIAL = "trial", "Essai gratuit"
         ACTIVE = "active", "Abonnement actif"
         SUSPENDED = "suspended", "Suspendu"
@@ -61,6 +63,10 @@ class Agency(models.Model):
     trial_ends_at = models.DateTimeField("fin de l'essai", null=True, blank=True)
     paid_until = models.DateField("abonnement payé jusqu'au", null=True, blank=True)
     is_active = models.BooleanField("active", default=True)
+    review_note = models.CharField("motif (refus, suspension)", max_length=255, blank=True)
+    validated_at = models.DateTimeField("accès validé le", null=True, blank=True)
+    validated_by = models.ForeignKey("accounts.User", verbose_name="validé par", on_delete=models.SET_NULL,
+                                     null=True, blank=True, related_name="+")
     signup_source = models.CharField(max_length=30, blank=True, help_text="self_signup, console, cli…")
     # --- Adresse web propre -------------------------------------------------
     subdomain = models.SlugField(
@@ -107,15 +113,30 @@ class Agency(models.Model):
         return max(0, math.ceil(seconds / 86400))
 
     @property
-    def is_operational(self) -> bool:
-        """L'agence peut-elle créer de nouveaux dossiers ? (lecture toujours possible)"""
+    def access_status(self) -> str:
+        """« pending » (en attente de validation NEURALIS), « active », « grace » (période payée
+        dépassée depuis moins de GRACE_DAYS jours) ou « blocked »."""
         if not self.is_active or self.plan == self.Plan.SUSPENDED:
-            return False
+            return "blocked"
+        if self.plan == self.Plan.PENDING:
+            return "pending"
         if self.plan == self.Plan.TRIAL:
-            return self.trial_ends_at is None or self.trial_ends_at > timezone.now()
+            return "active" if self.trial_ends_at is None or self.trial_ends_at > timezone.now() else "blocked"
         if self.plan == self.Plan.ACTIVE and self.paid_until:
-            return self.paid_until >= timezone.localdate()
-        return True
+            today = timezone.localdate()
+            if self.paid_until >= today:
+                return "active"
+            return "grace" if self.paid_until + timedelta(days=GRACE_DAYS) >= today else "blocked"
+        return "active"
+
+    @property
+    def grace_ends_on(self):
+        return self.paid_until + timedelta(days=GRACE_DAYS) if self.paid_until else None
+
+    @property
+    def is_operational(self) -> bool:
+        """L'équipe peut-elle travailler ? (sinon : accès limité à la page Abonnement)"""
+        return self.access_status in {"active", "grace"}
 
     @property
     def effective_receipt_prefix(self) -> str:
